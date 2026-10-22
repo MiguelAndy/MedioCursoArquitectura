@@ -11,8 +11,9 @@ In a Spec-First workflow, **specifications, API contracts, domain models, and ac
 ```text
 .
 ├── specs/                          # 🌟 Single Source of Truth (SSOT)
-│   ├── contracts/                  # Formal API Contracts (OpenAPI 3.0 / SUNAT UBL 2.1)
-│   │   └── api.yaml                # Standardized REST API Contract (RS 097-2012 / RS 234-2006)
+│   ├── contracts/                  # Formal API Contracts & XSD Schemas (UBL 2.1 / SUNAT)
+│   │   ├── api.yaml                # Standardized REST API Contract (RS 097-2012 / RS 234-2006)
+│   │   └── UBL-Invoice-2.1.xsd     # Official OASIS UBL-Invoice-2.1 XML Schema Definition
 │   ├── adr/                        # Architecture Decision Records
 │   │   └── 0001-arquitectura-mvc-hexagonal.md
 │   ├── features/                   # Domain & Migration Specifications
