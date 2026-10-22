@@ -40,7 +40,7 @@ El nuevo modelo de dominio se modela a través de un **Agregado Raíz (`FacturaE
 classDiagram
     class FacturaElectronica {
         +UUID id
-        +SerieCorrelativo numeroDocumento
+        +SerieNumero serie_numero
         +TipoComprobante tipoComprobante
         +FechaEmision fechaEmision
         +Moneda moneda
@@ -55,10 +55,11 @@ classDiagram
         +validarReglasUBL()
     }
 
-    class SerieCorrelativo {
+    class SerieNumero {
         +String serie
         +Int correlativo
         +String valorFormateado()
+        +validarRegexSunat()
     }
 
     class LineaFactura {
@@ -92,7 +93,7 @@ classDiagram
         +Monto totalPagar
     }
 
-    FacturaElectronica *-- SerieCorrelativo
+    FacturaElectronica *-- SerieNumero
     FacturaElectronica *-- LineaFactura
     FacturaElectronica *-- TotalesTributarios
     FacturaElectronica *-- TotalMonetario
@@ -103,11 +104,11 @@ classDiagram
 
 ## 3. Matriz Exhaustiva de Mapeo: Legado ➡️ UBL-Invoice-2.1
 
-A continuación se detalla la transformación determinista de los 5 campos legados hacia el árbol XML de OASIS UBL 2.1:
+A continuación se detalla la transformación determinista de los 5 campos legados hacia el árbol XML de OASIS UBL 2.1 y las entidades de dominio:
 
-| Campo Legado | Tipo Legado | Destino en UBL 2.1 (XPath / Nodo XML) | Regla de Transformación y Enriquecimiento de Negocio |
+| Campo Legado | Tipo Legado | Destino en UBL 2.1 / Dominio | Regla de Transformación y Enriquecimiento de Negocio |
 |:---|:---|:---|:---|
-| **`nro_documento`** | `VARCHAR(50)` | `Invoice/cbc:ID`<br/>`Invoice/cbc:InvoiceTypeCode` | **Normalización a Serie-Correlativo:**<br/>- Si el prefijo indica factura (ej. "F"), serie = `F001` (4 caracteres alfanuméricos), correlativo formateado a 8 dígitos con padding de ceros: `F001-00001245`.<br/>- Si indica boleta, serie = `B001`, correlativo = `B001-00001245`.<br/>- `InvoiceTypeCode`: Catálogo 01 (Factura), 03 (Boleta de Venta). |
+| **`nro_documento`** | `VARCHAR(50)` | **`serie_numero`**<br/>(`Invoice/cbc:ID`)<br/>`Invoice/cbc:InvoiceTypeCode` | **Mapeo Explícito a `serie_numero` (Regex Oficial SUNAT):**<br/>- Mapea el campo legado `nro_documento` a la propiedad canónica de dominio **`serie_numero`**.<br/>- **Validación con Regex oficial SUNAT:** `^(F|B)[A-Z0-9]{3}-(0*)[1-9][0-9]{0,7}$`.<br/>- Si el prefijo indica factura (ej. "F"), serie = `F001` (4 caracteres alfanuméricos), correlativo formateado a 8 dígitos con padding de ceros: `F001-00001245`.<br/>- Si indica boleta, serie = `B001`, correlativo = `B001-00001245`.<br/>- `InvoiceTypeCode`: Catálogo 08 (01 = Factura, 03 = Boleta de Venta). |
 | **`fecha`** | `VARCHAR(30)` | `Invoice/cbc:IssueDate`<br/>`Invoice/cbc:IssueTime`<br/>`Invoice/cbc:DueDate` | **Descomposición Temporal ISO-8601:**<br/>- Extrae `cbc:IssueDate` en formato estricto `YYYY-MM-DD`.<br/>- Extrae `cbc:IssueTime` en formato `HH:MM:SS`.<br/>- Si la transacción es a crédito, calcula `cbc:DueDate` según las condiciones de pago pactadas. |
 | **`producto`** | `VARCHAR(255)` | `cac:InvoiceLine/cac:Item/cbc:Description`<br/>`cac:InvoiceLine/cac:Item/cac:SellersItemIdentification/cbc:ID` | **Enriquecimiento del Ítem:**<br/>- Limpieza de caracteres de escape XML (`&`, `<`, `>`, `"`, `'`).<br/>- Asigna la descripción comercial a `cbc:Description`.<br/>- Extrae o mapea mediante catálogo maestro el `SellersItemIdentification/cbc:ID` (SKU).<br/>- Enriquecimiento opcional con código UNSPSC/Catálogo tributario si está parametrizado. |
 | **`salida`** | `DECIMAL(12,2)` | `cac:InvoiceLine/cbc:InvoicedQuantity` | **Conversión a Cantidad Facturada:**<br/>- El valor de egreso de inventario se mapea a la cantidad del comprobante.<br/>- Incorpora el atributo mandatorio de unidad de medida internacional: `@unitCode="NIU"` (Unidad de bien) o `@unitCode="ZZ"` (Servicio).<br/>- Valida que `InvoicedQuantity > 0`. |
@@ -152,7 +153,13 @@ A continuación se detalla la transformación determinista de los 5 campos legad
     "totales"
   ],
   "properties": {
-    "id": { "type": "string", "pattern": "^[F|B|T][A-Z0-9]{3}-[0-9]{1,8}$", "example": "F001-00001245" },
+    "serie_numero": {
+      "type": "string",
+      "pattern": "^(F|B)[A-Z0-9]{3}-(0*)[1-9][0-9]{0,7}$",
+      "example": "F001-00001245",
+      "description": "Serie y correlativo mapeado desde nro_documento legado bajo estándar UBL 2.1 / SUNAT"
+    },
+    "id": { "type": "string", "pattern": "^(F|B)[A-Z0-9]{3}-(0*)[1-9][0-9]{0,7}$", "example": "F001-00001245" },
     "tipoDocumento": { "type": "string", "enum": ["01", "03", "07", "08"], "example": "01" },
     "fechaEmision": { "type": "string", "format": "date", "example": "2026-10-22" },
     "horaEmision": { "type": "string", "pattern": "^[0-9]{2}:[0-9]{2}:[0-9]{2}$", "example": "10:15:00" },
@@ -251,7 +258,7 @@ export class MigradorLegadoUblService {
 
     // 4. Instanciación del Agregado de Dominio
     return FacturaElectronica.crear({
-      numeroDocumento: SerieCorrelativo.crearDesdeString(legado.nro_documento),
+      serie_numero: SerieNumero.crearDesdeString(legado.nro_documento),
       tipoDocumento: TipoComprobante.determinarDesdeSerie(legado.nro_documento),
       fechaEmision: issueDate,
       horaEmision: issueTime,

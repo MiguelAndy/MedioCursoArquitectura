@@ -211,6 +211,9 @@ components:
           description: Versión de la estructura del documento definida por SUNAT
         id:
           $ref: '#/components/schemas/SerieNumero'
+        serie_numero:
+          $ref: '#/components/schemas/SerieNumero'
+          description: Serie y correlativo (terminología docente / SUNAT) mapeado a cbc:ID
         issueDate:
           type: string
           format: date
@@ -760,6 +763,9 @@ components:
           description: Estado del ciclo de vida del comprobante
         id:
           $ref: '#/components/schemas/SerieNumero'
+        serie_numero:
+          $ref: '#/components/schemas/SerieNumero'
+          description: Serie y número correlativo oficial devuelto según terminología SUNAT / docente
         digestValue:
           type: string
           example: "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
@@ -978,6 +984,9 @@ components:
               idRegistroLegado:
                 type: string
                 example: "REG-98432"
+              serie_numero:
+                $ref: '#/components/schemas/SerieNumero'
+                description: Serie y correlativo normalizado desde el nro_documento legado
               ublIdGenerado:
                 type: string
                 example: "F001-00001245"
