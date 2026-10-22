@@ -9,6 +9,30 @@ info:
     - **RS Nº 097-2012/SUNAT** y modificatorias (Sistema de Emisión Electrónica SEE-DSC / SEE-OSE).
     - **RS Nº 234-2006/SUNAT** (Libros y Registros vinculados a asuntos tributarios y Catálogos).
     - **Ley Nº 30884** (Impuesto al Consumo de Bolsas de Plástico - ICBPER).
+    - **Manual del Programador SUNAT 2021** (Guía de integración de Comprobantes de Pago Electrónicos).
+
+    ### 📦 Nomenclatura Oficial de Archivos (SUNAT):
+    - **Archivo XML Canónico:** `[RUC]-[TIPO]-[SERIE]-[NUMERO].xml` (ejemplo: `20601234567-01-F001-00001245.xml`).
+    - **Archivo ZIP a Transmitir:** `[RUC]-[TIPO]-[SERIE]-[NUMERO].zip` (ejemplo: `20601234567-01-F001-00001245.zip`).
+      *El archivo ZIP debe contener en su raíz únicamente el archivo XML firmado, sin subdirectorios.*
+    - **Constancia de Recepción (CDR):** `R-[RUC]-[TIPO]-[SERIE]-[NUMERO].zip` conteniendo en su interior el archivo `R-[RUC]-[TIPO]-[SERIE]-[NUMERO].xml` firmado por la autoridad fiscal.
+
+    ### 🌐 Integración Backend con Servicios Web SOAP SUNAT:
+    El backend de ABC Software Corp se comunica con los WebServices SOAP de SUNAT mediante autenticación **WS-Security** (OASIS Web Services Security):
+    - **Cabecera de Autenticación:** `wsse:Security` con `wsse:UsernameToken`:
+      * `wsse:Username`: Concatenación `[RUC][UsuarioSOL]` (ejemplo: `20601234567MODDATOS`).
+      * `wsse:Password`: Contraseña de la Clave SOL (ejemplo: `moddatos`).
+    - **Operaciones SOAP Principales:**
+      * `sendBill(fileName, contentFile)`: Envío síncrono individual de Facturas (`01`), Boletas (`03`) y Notas (`07`, `08`). Retorna el `applicationResponse` (CDR en ZIP codificado en Base64).
+      * `sendSummary(fileName, contentFile)`: Envío asíncrono en lote de Resúmenes Diarios de Boletas (`RC`) o Comunicaciones de Baja (`RA`). Retorna un número de `ticket`.
+      * `getStatus(ticket)`: Consulta del estado de procesamiento del ticket devuelto por `sendSummary`.
+      * `getStatusCdr(rucComprobante, tipoComprobante, serieComprobante, numeroComprobante)`: Consulta síncrona del estado del comprobante y recuperación/descarga de la constancia de recepción (CDR).
+
+    ### 🚦 Códigos Oficiales de Respuesta SUNAT (CDR):
+    - **`0` (Aceptado):** El comprobante cumple con todas las reglas XSD y validaciones tributarias. Es válido legalmente.
+    - **`2000 - 3999` (Rechazado):** El comprobante tiene errores graves tributarios o de integridad de firma. No genera efectos tributarios ni debe repetirse el correlativo.
+    - **`>= 4000` (Observado):** El comprobante fue aceptado por SUNAT pero contiene advertencias o reparos informativos.
+    - **`0100 - 1999` (Excepción de Sistema / SOAP Fault):** Errores técnicos de conectividad, caída de servidores SUNAT, timeout o credenciales SOL inválidas.
   version: 1.0.0
   contact:
     name: Dirección de Arquitectura de Software - ABC Software Corp
@@ -37,10 +61,11 @@ paths:
         - Comprobantes
       summary: Emitir Comprobante de Pago Electrónico (UBL-Invoice-2.1)
       description: >
-        Emite, valida, firma criptográficamente y genera el XML UBL 2.1 de una Factura
-        Electrónica. Implementa las validaciones de RUC (11 dígitos con módulo 11),
-        discriminación de impuestos (IGV, ISC, ICBPER según Ley 30884), y prepara el nodo
-        de firma digital XMLDSig (`UBLExtensions`).
+        Emite, valida, firma criptográficamente (XMLDSig en `UBLExtensions`), empaqueta
+        en formato `[RUC]-[TIPO]-[SERIE]-[NUMERO].zip` y transmite mediante el método SOAP
+        `sendBill` hacia SUNAT/OSE.
+        Implementa validaciones de RUC con Módulo 11, cálculo de IGV, ISC, ICBPER y validación
+        de Serie-Correlativo con la Regex oficial: `^(F|B)[A-Z0-9]{3}-(0*)[1-9][0-9]{0,7}$`.
       operationId: emitirFactura
       requestBody:
         required: true
@@ -141,6 +166,20 @@ paths:
 components:
   schemas:
     # =========================================================================
+    # SERIE Y NÚMERO CORRELATIVO (REGEX OFICIAL SUNAT)
+    # =========================================================================
+    SerieNumero:
+      type: string
+      pattern: '^(F|B)[A-Z0-9]{3}-(0*)[1-9][0-9]{0,7}$'
+      example: "F001-00001245"
+      description: >
+        Serie y correlativo del comprobante validado según el Manual del Programador SUNAT.
+        - Serie: 4 caracteres alfanuméricos iniciada en 'F' (Facturas) o 'B' (Boletas de Venta).
+        - Separador: Guion obligatorio (-).
+        - Correlativo: Número entero estrictamente mayor a cero de hasta 8 dígitos (permite padding con ceros a la izquierda).
+        Regex oficial: `^(F|B)[A-Z0-9]{3}-(0*)[1-9][0-9]{0,7}$`
+
+    # =========================================================================
     # ESQUEMA PRINCIPAL DE FACTURA UBL 2.1 (INVOICE)
     # =========================================================================
     InvoiceRequest:
@@ -171,10 +210,7 @@ components:
           example: "2.0"
           description: Versión de la estructura del documento definida por SUNAT
         id:
-          type: string
-          pattern: '^[F|B][A-Z0-9]{3}-[0-9]{1,8}$'
-          example: "F001-00001245"
-          description: Serie y correlativo del comprobante (Serie de 4 caracteres alfanuméricos iniciando en F para factura y correlativo de hasta 8 dígitos)
+          $ref: '#/components/schemas/SerieNumero'
         issueDate:
           type: string
           format: date
@@ -723,8 +759,7 @@ components:
           example: "ACEPTADO"
           description: Estado del ciclo de vida del comprobante
         id:
-          type: string
-          example: "F001-00001245"
+          $ref: '#/components/schemas/SerieNumero'
         digestValue:
           type: string
           example: "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
@@ -737,23 +772,51 @@ components:
           type: string
           description: Archivo XML oficial firmado digitalmente y codificado en Base64
         cdrResponse:
-          type: object
-          description: Constancia de Recepción (CDR) devuelta por SUNAT o la OSE
-          properties:
-            responseCode:
-              type: string
-              example: "0"
-              description: "0 = Aceptado, códigos de error en caso de observaciones o rechazo"
-            description:
-              type: string
-              example: "La Factura número F001-00001245 ha sido aceptada."
-            cdrZipBase64:
-              type: string
-              description: Archivo ZIP oficial con el XML del CDR firmado por SUNAT
+          $ref: '#/components/schemas/CdrResponse'
         timestamp:
           type: string
           format: date-time
           example: "2026-10-22T10:30:05Z"
+
+    # =========================================================================
+    # CONSTANCIA DE RECEPCIÓN (CDR SUNAT / OSE)
+    # =========================================================================
+    CdrResponse:
+      type: object
+      description: Constancia de Recepción (CDR) oficial devuelta por SUNAT o la OSE
+      required:
+        - responseCode
+        - statusCategory
+        - description
+        - cdrZipBase64
+      properties:
+        responseCode:
+          type: string
+          example: "0"
+          description: >
+            Código numérico oficial de respuesta emitido por SUNAT en el CDR:
+            - '0': Aceptado (El comprobante cumple con todas las reglas XSD y validaciones tributarias).
+            - '2000' - '3999': Rechazado (Comprobante inválido o inconsistente, rechazo tributario definitivo).
+            - '>= 4000': Observado (Comprobante aceptado con observaciones o advertencias informativas).
+            - '0100' - '1999': Excepción técnica de transmisión o SOAP Fault.
+        statusCategory:
+          type: string
+          enum: ["ACEPTADO", "RECHAZADO", "OBSERVADO", "SOAP_FAULT"]
+          example: "ACEPTADO"
+          description: Clasificación de alto nivel del estado del CDR
+        description:
+          type: string
+          example: "La Factura número F001-00001245 ha sido aceptada."
+          description: Glosa descriptiva oficial incluida en el CDR por SUNAT
+        notes:
+          type: array
+          description: Lista de observaciones o advertencias tributarias cuando responseCode >= 4000
+          items:
+            type: string
+            example: "Observación 4001: El RUC del receptor no se encuentra habido."
+        cdrZipBase64:
+          type: string
+          description: Archivo ZIP oficial (nombrado 'R-[RUC]-[TIPO]-[SERIE]-[NUMERO].zip') que contiene el XML del CDR firmado digitalmente por SUNAT
 
     # =========================================================================
     # CATÁLOGO 8 DE SUNAT (RS 234-2006 / RS 097-2012)

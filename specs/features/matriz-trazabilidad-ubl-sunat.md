@@ -140,11 +140,138 @@ Antes de consultar la matriz, considere las siguientes directrices obligatorias 
 
 ---
 
-## 3. Guía de Implementación para Desarrolladores Backend
+---
+
+## 3. Integración WebServices y Empaquetado SUNAT (Manual del Programador 2021)
+
+### 3.1. Estructura y Reglas del Paquete ZIP
+Para la transmisión electrónica mediante el servicio web `sendBill` de SUNAT/OSE, el archivo XML firmado debe ser empaquetado en un archivo comprimido ZIP bajo las siguientes reglas estrictas:
+
+* **Nomenclatura Canónica:**
+  * **XML Comprobante:** `[RUC]-[TIPO]-[SERIE]-[NUMERO].xml` *(Ejemplo: `20601234567-01-F001-00001245.xml`)*.
+  * **ZIP Comprimido:** `[RUC]-[TIPO]-[SERIE]-[NUMERO].zip` *(Ejemplo: `20601234567-01-F001-00001245.zip`)*.
+  * **Constancia de Recepción (CDR):** `R-[RUC]-[TIPO]-[SERIE]-[NUMERO].zip` conteniendo en su interior el archivo XML `R-[RUC]-[TIPO]-[SERIE]-[NUMERO].xml`.
+* **Reglas de Compresión:**
+  1. El archivo ZIP debe contener en su directorio raíz **únicamente** el archivo XML correspondiente.
+  2. Prohibido incluir carpetas intermedias o archivos temporales (`.DS_Store`, `Thumbs.db`).
+  3. Algoritmo de compresión obligatorio: **Deflate** (PKZIP estándar).
+  4. Codificación del XML: `ISO-8859-1` o `UTF-8` sin BOM (*Byte Order Mark*).
+  5. El ZIP generado se codifica en **Base64** para su inclusión en el parámetro `contentFile` del sobre SOAP.
+
+---
+
+### 3.2. Estructura Canónica de la Firma XMLDSig (`ext:UBLExtensions`)
+La firma digital debe incrustarse en el primer nodo `ext:UBLExtension` del árbol XML conforme al estándar W3C XML Signature Syntax and Processing:
+
+```xml
+<ext:UBLExtensions>
+  <ext:UBLExtension>
+    <ext:ExtensionContent>
+      <ds:Signature Id="SignABCSoftware">
+        <ds:SignedInfo>
+          <ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>
+          <ds:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
+          <ds:Reference URI="">
+            <ds:Transforms>
+              <ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+            </ds:Transforms>
+            <ds:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
+            <ds:DigestValue>47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=</ds:DigestValue>
+          </ds:Reference>
+        </ds:SignedInfo>
+        <ds:SignatureValue>
+          MIIEowIBAAKCAQEA0u9h4F...[Firma Criptográfica RSA en Base64]...
+        </ds:SignatureValue>
+        <ds:KeyInfo>
+          <ds:X509Data>
+            <ds:X509Certificate>
+              MIIFXTCCA0WgAwIBAgIQ...[Certificado Público X.509 en Base64]...
+            </ds:X509Certificate>
+          </ds:X509Data>
+        </ds:KeyInfo>
+      </ds:Signature>
+    </ext:ExtensionContent>
+  </ext:UBLExtension>
+</ext:UBLExtensions>
+```
+
+* **Reglas de Firma Digital:**
+  * **Transformación `enveloped-signature`:** Garantiza que la firma se calcula sobre todo el comprobante excluyendo el nodo `<ds:Signature>`.
+  * **Canonicalización C14N:** Transforma el XML a su forma canónica para que diferencias insignificantes (espacios, saltos de línea CRLF/LF) no alteren el Hash.
+  * **Hash Resumen (`DigestValue`):** Valor SHA-1 o SHA-256 en Base64 que debe extraerse para la impresión del ticket POS y el código QR.
+  * **Certificado Digital X.509:** Emitido por una entidad de certificación acreditada ante INDECOPI (Llamasoft, Reniec, Camerfirma, etc.). Su RUC debe coincidir con el RUC emisor.
+
+---
+
+### 3.3. Servicios Web SOAP, WS-Security y Manejo de Excepciones SOAP Fault
+
+#### 3.3.1. Canales y Endpoints Oficiales
+* **Producción:** `https://e-factura.sunat.gob.pe/ol-ti-itcpfegem/billService`
+* **Consultas CDR:** `https://e-factura.sunat.gob.pe/ol-it-wsconscdr/billConsultService`
+* **Homologación / Pruebas:** `https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService`
+
+#### 3.3.2. Autenticación WS-Security (OASIS)
+Cada petición SOAP debe incluir el encabezado de seguridad `wsse:Security`:
+```xml
+<soapenv:Header>
+  <wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+    <wsse:UsernameToken>
+      <wsse:Username>20601234567MODDATOS</wsse:Username>
+      <wsse:Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText">moddatos</wsse:Password>
+    </wsse:UsernameToken>
+  </wsse:Security>
+</soapenv:Header>
+```
+
+#### 3.3.3. Operaciones Web Service Principales
+1. **`sendBill(fileName, contentFile)`:**
+   - Envío síncrono para Facturas (`01`), Boletas (`03`) y Notas (`07`, `08`).
+   - Retorna de inmediato el `applicationResponse` que contiene el archivo `R-[RUC]-[TIPO]-[SERIE]-[NUMERO].zip` con el CDR firmado.
+2. **`sendSummary(fileName, contentFile)`:**
+   - Envío asíncrono para Resumen Diario de Boletas (`RC`) y Comunicaciones de Baja (`RA`).
+   - Retorna un identificador de lote llamado `ticket`.
+3. **`getStatus(ticket)`:**
+   - Consulta del estado de procesamiento de un ticket devuelto por `sendSummary`.
+4. **`getStatusCdr(rucComprobante, tipoComprobante, serieComprobante, numeroComprobante)`:**
+   - Consulta síncrona del estado del comprobante y recuperación/descarga de la constancia de recepción (CDR) ante caídas de conexión durante un `sendBill`.
+
+---
+
+### 3.4. Clasificación de Respuestas y Manejo de SOAP Fault
+
+```mermaid
+flowchart TD
+    Req[Petición SOAP sendBill] --> CheckConn{¿Conexión HTTP Exitosa?}
+    CheckConn -->|No / Timeout / 500| FaultNet[Reintento con Backoff Exponencial o Contingencia Offline]
+    CheckConn -->|Sí| ParseSoap{¿Respuesta SOAP Fault?}
+    
+    ParseSoap -->|Sí: Códigos 0100 a 0999| SoapFaultCat[Error de Sistema / Protocolo: Revisar credenciales SOL o reintentar]
+    ParseSoap -->|No: Retorna CDR ZIP| ReadCDR{Lectura de Código CDR}
+    
+    ReadCDR -->|Código 0| CDR0[ACEPTADO: Comprobante válido legalmente]
+    ReadCDR -->|Códigos 2000 a 3999| CDRRech[RECHAZADO: Inconsistencia tributaria grave. Corregir origen]
+    ReadCDR -->|Códigos >= 4000| CDRObs[OBSERVADO: Aceptado con reparos informativos]
+```
+
+#### Matriz de Clasificación de Códigos de Respuesta:
+
+| Rango de Código | Tipo de Respuesta | Significado Técnico y Tributario | Acción Requerida en Backend |
+|:---|:---|:---|:---|
+| **`0`** | **Aceptado** | El comprobante superó el 100% de las validaciones formales y tributarias. El CDR contiene la firma oficial de SUNAT. | Almacenar CDR en base de datos, actualizar estado a `ACEPTADO`, entregar comprobante al cliente. |
+| **`0100` a `0999`** | **SOAP Fault (Error de Sistema)** | Fallo a nivel de protocolo, autenticación o servicio:<br/>- `0102`: Archivo ZIP corrupto o vacío.<br/>- `0103`: XML no coincide con el nombre del ZIP.<br/>- `0109`: Servicio no disponible / Timeout.<br/>- `0156`: RUC no habilitado en SEE.<br/>- `0160`: Usuario o Clave SOL inválidos. | **No descartar el comprobante.** Si es timeout (`0109`), reintentar con `getStatusCdr` para no duplicar correlativo. Si es error de credenciales, registrar alerta en logs. |
+| **`2000` a `3999`** | **Rechazado (CDR)** | Incumplimiento grave de reglas tributarias o de esquema:<br/>- `2014`: RUC receptor no existe en padrón.<br/>- `2115`: Versión UBL incorrecta.<br/>- `2160`: Error de cuadre aritmético en IGV.<br/>- `2121`: Firma digital inválida o certificado vencido. | **Rechazo definitivo.** El comprobante no tiene validez legal. No volver a enviar con el mismo correlativo si la regla fiscal lo impide; notificar al emisor para corregir la transacción. |
+| **`>= 4000`** | **Observado (CDR)** | El comprobante es **válido legalmente**, pero contiene advertencias informativas (ej. receptor con condición de no habido, o uso de catálogos desactualizados). | Almacenar el comprobante como aceptado y guardar las glosas de observación para auditoría preventiva. |
+
+---
+
+## 4. Guía de Implementación para Desarrolladores Backend
 
 Para programar los validadores de negocio en el módulo `src/domain/` y `src/application/`:
-1. **Paso 1 (Sintáctico):** Validar el payload contra el esquema OpenAPI [`specs/contracts/api.yaml`](../contracts/api.yaml).
+1. **Paso 1 (Sintáctico):** Validar el payload contra el esquema OpenAPI [`specs/contracts/api.yaml`](../contracts/api.yaml) y verificar la regex `^(F|B)[A-Z0-9]{3}-(0*)[1-9][0-9]{0,7}$`.
 2. **Paso 2 (RUC y Módulo 11):** Implementar la función de control de RUC. Si falla, lanzar excepción de dominio con código `SUNAT-1034`.
 3. **Paso 3 (Afectación y Cálculos):** Si la línea tiene afectación `10`, exigir cálculo exacto de IGV con 18%.
 4. **Paso 4 (Consistencia de Cuadre):** Validar la fórmula de `PayableAmount` con tolerancia máxima de $\pm 0.01$ por efecto de redondeo de líneas según Anexo 8.
 5. **Paso 5 (Firma y QR):** Inyectar la firma digital en `UBLExtensions`, computar el `DigestValue` e incluir la cadena QR antes de persistir en base de datos.
+6. **Paso 6 (Empaquetado y Envío):** Generar el ZIP nombrado `[RUC]-[TIPO]-[SERIE]-[NUMERO].zip`, codificar a Base64 e invocar la operación `sendBill` con cabecera WS-Security.
+7. **Paso 7 (Procesamiento CDR):** Desempaquetar el CDR `R-*.zip`, evaluar el código numérico (`0`, `2000-3999`, `>=4000`) y procesar la persistencia según la matriz de estados.
+
