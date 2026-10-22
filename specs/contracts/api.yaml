@@ -1,0 +1,984 @@
+openapi: 3.0.3
+info:
+  title: ABC Software Corp - API de Facturación Electrónica UBL 2.1
+  description: >
+    Especificación de Contrato API-First para el Sistema de Facturación Electrónica
+    de ABC Software Corp, diseñado en cumplimiento estricto con el estándar internacional
+    OASIS UBL (Universal Business Language) v2.1 (ISO/IEC 19845) y las normativas
+    tributarias peruanas:
+    - **RS Nº 097-2012/SUNAT** y modificatorias (Sistema de Emisión Electrónica SEE-DSC / SEE-OSE).
+    - **RS Nº 234-2006/SUNAT** (Libros y Registros vinculados a asuntos tributarios y Catálogos).
+    - **Ley Nº 30884** (Impuesto al Consumo de Bolsas de Plástico - ICBPER).
+  version: 1.0.0
+  contact:
+    name: Dirección de Arquitectura de Software - ABC Software Corp
+    email: arquitectura@abcsoftwarecorp.com
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Entorno de Desarrollo Local (Monolito Limpio / POS Local)
+  - url: https://staging-api.abcsoftwarecorp.com/api/v1
+    description: Entorno de Certificación y Homologación SUNAT / OSE
+  - url: https://api.abcsoftwarecorp.com/api/v1
+    description: Entorno de Producción Oficial
+
+tags:
+  - name: Comprobantes
+    description: Emisión, validación y consulta de facturas electrónicas bajo estándar UBL 2.1
+  - name: Catálogos SUNAT
+    description: Consulta de tablas maestras y catálogos tributarios (RS 234-2006 y RS 097-2012)
+  - name: Migración & Legado
+    description: Ingesta de datos históricos del sistema legado con trazabilidad hacia UBL 2.1
+
+paths:
+  /facturas:
+    post:
+      tags:
+        - Comprobantes
+      summary: Emitir Comprobante de Pago Electrónico (UBL-Invoice-2.1)
+      description: >
+        Emite, valida, firma criptográficamente y genera el XML UBL 2.1 de una Factura
+        Electrónica. Implementa las validaciones de RUC (11 dígitos con módulo 11),
+        discriminación de impuestos (IGV, ISC, ICBPER según Ley 30884), y prepara el nodo
+        de firma digital XMLDSig (`UBLExtensions`).
+      operationId: emitirFactura
+      requestBody:
+        required: true
+        description: Estructura de datos canónica para la generación de la Factura UBL 2.1
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceRequest'
+      responses:
+        '201':
+          description: Comprobante emitido, sellado y firmado satisfactoriamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceResponse'
+        '400':
+          description: Error de validación en reglas de negocio o esquema UBL/SUNAT (e.g., RUC inválido, cálculos impositivos descuadrados)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Error de consistencia tributaria o rechazo de firma digital
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '500':
+          description: Error interno o caída en la comunicación con el servicio de firma/OSE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /catalogos/8:
+    get:
+      tags:
+        - Catálogos SUNAT
+      summary: Consultar Catálogo 08 de SUNAT (Tipos de Comprobantes de Pago)
+      description: >
+        Retorna la tabla maestra correspondiente al **Catálogo No. 08 de SUNAT**
+        (Código de Tipo de Documento / Tipos de Comprobantes de Pago y Documentos vinculados
+        a asuntos tributarios regulados bajo la RS Nº 234-2006/SUNAT y RS Nº 097-2012/SUNAT).
+      operationId: getCatalogo8
+      parameters:
+        - name: soloActivos
+          in: query
+          required: false
+          description: Filtra únicamente los comprobantes autorizados y vigentes para emisión electrónica
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Lista de códigos y descripciones del Catálogo 08
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Catalogo8Response'
+        '500':
+          description: Error al recuperar catálogo maestro
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /migracion/legacy:
+    post:
+      tags:
+        - Migración & Legado
+      summary: Ingesta y Transformación de Registros Históricos del Sistema Legado
+      description: >
+        Recibe transacciones históricas en formato plano (`fecha`, `ingreso`, `salida`,
+        `producto`, `nro_documento`), valida su integridad y ejecuta la transformación hacia
+        el estándar UBL 2.1 garantizando trazabilidad y registro de auditoría.
+      operationId: migrarLoteLegado
+      requestBody:
+        required: true
+        description: Lote o registro único del sistema legado para migración hacia UBL 2.1
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LegacyMigrationRequest'
+      responses:
+        '200':
+          description: Migración procesada exitosamente con trazabilidad completa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegacyMigrationResponse'
+        '400':
+          description: El lote contiene registros con formatos incompatibles o valores nulos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+components:
+  schemas:
+    # =========================================================================
+    # ESQUEMA PRINCIPAL DE FACTURA UBL 2.1 (INVOICE)
+    # =========================================================================
+    InvoiceRequest:
+      type: object
+      description: Estructura conforme al estándar OASIS UBL-Invoice-2.1 y directrices SUNAT RS 097-2012
+      required:
+        - ublVersionId
+        - customizationId
+        - id
+        - issueDate
+        - issueTime
+        - invoiceTypeCode
+        - documentCurrencyCode
+        - accountingSupplierParty
+        - accountingCustomerParty
+        - taxTotals
+        - legalMonetaryTotal
+        - invoiceLines
+      properties:
+        ublVersionId:
+          type: string
+          enum: ["2.1"]
+          example: "2.1"
+          description: Versión del estándar UBL adoptado (OASIS UBL 2.1)
+        customizationId:
+          type: string
+          enum: ["2.0"]
+          example: "2.0"
+          description: Versión de la estructura del documento definida por SUNAT
+        id:
+          type: string
+          pattern: '^[F|B][A-Z0-9]{3}-[0-9]{1,8}$'
+          example: "F001-00001245"
+          description: Serie y correlativo del comprobante (Serie de 4 caracteres alfanuméricos iniciando en F para factura y correlativo de hasta 8 dígitos)
+        issueDate:
+          type: string
+          format: date
+          example: "2026-10-22"
+          description: Fecha de emisión en formato ISO-8601 YYYY-MM-DD
+        issueTime:
+          type: string
+          pattern: '^[0-9]{2}:[0-9]{2}:[0-9]{2}$'
+          example: "10:30:00"
+          description: Hora de emisión en formato HH:MM:SS
+        dueDate:
+          type: string
+          format: date
+          example: "2026-11-22"
+          description: Fecha de vencimiento para facturas a crédito
+        invoiceTypeCode:
+          type: string
+          enum: ["01", "03", "07", "08"]
+          example: "01"
+          description: Tipo de comprobante según Catálogo 08 (01 = Factura, 03 = Boleta de Venta)
+        note:
+          type: array
+          description: Leyendas y notas según Catálogo 52 de SUNAT (ej. código 1000 = Monto en letras)
+          items:
+            $ref: '#/components/schemas/InvoiceNote'
+        documentCurrencyCode:
+          type: string
+          enum: ["PEN", "USD", "EUR"]
+          example: "PEN"
+          description: Código internacional de moneda según ISO 4217
+        signature:
+          $ref: '#/components/schemas/DigitalSignaturePlaceholder'
+        accountingSupplierParty:
+          $ref: '#/components/schemas/SupplierParty'
+        accountingCustomerParty:
+          $ref: '#/components/schemas/CustomerParty'
+        paymentTerms:
+          $ref: '#/components/schemas/PaymentTerms'
+        taxTotals:
+          type: array
+          description: Desglose global de impuestos (IGV, ISC, ICBPER, etc.)
+          items:
+            $ref: '#/components/schemas/TaxTotal'
+        legalMonetaryTotal:
+          $ref: '#/components/schemas/LegalMonetaryTotal'
+        invoiceLines:
+          type: array
+          minItems: 1
+          description: Ítems o líneas de detalle de la factura
+          items:
+            $ref: '#/components/schemas/InvoiceLine'
+
+    # =========================================================================
+    # LEYENDAS Y NOTAS (CATÁLOGO 52)
+    # =========================================================================
+    InvoiceNote:
+      type: object
+      required:
+        - code
+        - value
+      properties:
+        code:
+          type: string
+          example: "1000"
+          description: Código de leyenda según Catálogo 52 SUNAT (1000 = Monto expresado en letras)
+        value:
+          type: string
+          example: "CIENTO DIECIOCHO CON 00/100 SOLES"
+
+    # =========================================================================
+    # PROVEEDOR / EMISOR (ACCOUNTING SUPPLIER PARTY)
+    # =========================================================================
+    SupplierParty:
+      type: object
+      description: Información fiscal del emisor de la factura
+      required:
+        - ruc
+        - registrationName
+        - partyIdentificationTypeCode
+        - postalAddress
+      properties:
+        ruc:
+          type: string
+          pattern: '^(10|20|15|16|17)[0-9]{9}$'
+          minLength: 11
+          maxLength: 11
+          example: "20601234567"
+          description: RUC formal de 11 dígitos con validación de dígito verificador módulo 11
+        registrationName:
+          type: string
+          minLength: 2
+          maxLength: 150
+          example: "ABC SOFTWARE CORP S.A.C."
+          description: Razón social registrada ante SUNAT
+        tradeName:
+          type: string
+          maxLength: 100
+          example: "ABC SOLUTIONS"
+          description: Nombre comercial del emisor
+        partyIdentificationTypeCode:
+          type: string
+          enum: ["6"]
+          example: "6"
+          description: Tipo de documento de identidad del Catálogo 06 (6 = RUC)
+        establishmentCode:
+          type: string
+          pattern: '^[0-9]{4}$'
+          example: "0000"
+          description: Código de 4 dígitos asignado por SUNAT para el establecimiento anexo (0000 = Principal)
+        postalAddress:
+          $ref: '#/components/schemas/PostalAddress'
+
+    # =========================================================================
+    # CLIENTE / RECEPTOR (ACCOUNTING CUSTOMER PARTY)
+    # =========================================================================
+    CustomerParty:
+      type: object
+      description: Información fiscal del adquirente / cliente
+      required:
+        - identificationNumber
+        - partyIdentificationTypeCode
+        - registrationName
+      properties:
+        identificationNumber:
+          type: string
+          pattern: '^[0-9A-Za-z\-\.]{1,15}$'
+          example: "20109876543"
+          description: Número de documento de identidad del cliente
+        partyIdentificationTypeCode:
+          type: string
+          enum: ["0", "1", "4", "6", "7", "A"]
+          example: "6"
+          description: >
+            Tipo de documento según Catálogo 06 de SUNAT:
+            - 0 = Doc.trib.no.dom.sin.ruc
+            - 1 = Documento Nacional de Identidad (DNI)
+            - 4 = Carnet de Extranjería
+            - 6 = Registro Único de Contribuyentes (RUC)
+            - 7 = Pasaporte
+            - A = Cédula Diplomática
+        registrationName:
+          type: string
+          minLength: 2
+          maxLength: 150
+          example: "DISTRIBUIDORA INDUSTRIAL DEL PERU S.A."
+          description: Razón social o nombres y apellidos completos
+        postalAddress:
+          $ref: '#/components/schemas/PostalAddress'
+
+    PostalAddress:
+      type: object
+      properties:
+        ubigeo:
+          type: string
+          pattern: '^[0-9]{6}$'
+          example: "150101"
+          description: Código de Ubigeo INEI de 6 dígitos (Departamento, Provincia, Distrito)
+        addressLine:
+          type: string
+          maxLength: 150
+          example: "Av. Las Camelias 450, Piso 8, San Isidro"
+        department:
+          type: string
+          example: "Lima"
+        province:
+          type: string
+          example: "Lima"
+        district:
+          type: string
+          example: "San Isidro"
+        countryCode:
+          type: string
+          default: "PE"
+          example: "PE"
+          description: Código ISO 3166-1 alfa-2 del país
+
+    # =========================================================================
+    # FORMAS Y CONDICIONES DE PAGO
+    # =========================================================================
+    PaymentTerms:
+      type: object
+      required:
+        - paymentMeans
+      properties:
+        paymentMeans:
+          type: string
+          enum: ["Contado", "Credito"]
+          example: "Contado"
+        totalAmountDue:
+          type: number
+          format: double
+          example: 0.00
+          description: Monto neto pendiente de pago para transacciones al crédito
+        installments:
+          type: array
+          description: Cuotas de pago en caso de transacciones a crédito
+          items:
+            type: object
+            required:
+              - installmentNumber
+              - amount
+              - dueDate
+            properties:
+              installmentNumber:
+                type: integer
+                example: 1
+              amount:
+                type: number
+                format: double
+                example: 118.00
+              dueDate:
+                type: string
+                format: date
+                example: "2026-11-22"
+
+    # =========================================================================
+    # ESTRUCTURA DE IMPUESTOS TOTALES (TAX TOTALS: IGV, ISC, ICBPER)
+    # =========================================================================
+    TaxTotal:
+      type: object
+      description: Agrupador de impuestos calculados a nivel global de la factura
+      required:
+        - taxAmount
+        - taxSubtotals
+      properties:
+        taxAmount:
+          type: number
+          format: double
+          example: 18.00
+          description: Importe total liquidado de este impuesto
+        taxSubtotals:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaxSubtotal'
+
+    TaxSubtotal:
+      type: object
+      required:
+        - taxAmount
+        - taxCategory
+      properties:
+        taxableAmount:
+          type: number
+          format: double
+          example: 100.00
+          description: Base imponible sobre la cual se calcula el impuesto (excepto en ICBPER que aplica por unidad física)
+        taxAmount:
+          type: number
+          format: double
+          example: 18.00
+          description: Monto resultante del impuesto para esta base
+        baseUnitMeasure:
+          type: number
+          format: double
+          example: 5.0
+          description: Número de bolsas de plástico sujetas a ICBPER
+        taxCategory:
+          $ref: '#/components/schemas/TaxCategory'
+
+    TaxCategory:
+      type: object
+      required:
+        - taxScheme
+      properties:
+        id:
+          type: string
+          enum: ["S", "Z", "E", "O"]
+          example: "S"
+          description: Categoría del impuesto según Catálogo 05 UBL (S = Estándar, Z = Tasa Cero, E = Exonerado, O = Fuera de ámbito)
+        percent:
+          type: number
+          format: double
+          example: 18.00
+          description: Porcentaje o tasa aplicable (e.g. 18.00 para IGV general, o porcentaje de ISC)
+        taxExemptionReasonCode:
+          type: string
+          example: "10"
+          description: >
+            Código de Afectación al IGV según Catálogo No. 07 de SUNAT:
+            - 10 = Gravado - Operación Onerosa
+            - 20 = Exonerado - Operación Onerosa
+            - 30 = Inafecto - Operación Onerosa
+            - 40 = Exportación de Bienes o Servicios
+        tierRange:
+          type: string
+          enum: ["01", "02", "03"]
+          example: "01"
+          description: >
+            Sistema de cálculo de ISC según Catálogo No. 08 / Tipo de Sistema de ISC:
+            - 01 = Sistema al Valor (Apéndice IV, lit. A)
+            - 02 = Aplicación del Monto Fijo (Apéndice IV, lit. B)
+            - 03 = Sistema de Precios de Venta al Público (Apéndice IV, lit. C)
+        taxScheme:
+          $ref: '#/components/schemas/TaxScheme'
+
+    TaxScheme:
+      type: object
+      description: Esquema tributario formal según Catálogo No. 05 de SUNAT
+      required:
+        - id
+        - name
+        - taxTypeCode
+      properties:
+        id:
+          type: string
+          enum: ["1000", "2000", "7152", "9995", "9996", "9997", "9998"]
+          example: "1000"
+          description: >
+            Código de tributo según Catálogo No. 05 SUNAT:
+            - 1000 = IGV (Impuesto General a las Ventas)
+            - 2000 = ISC (Impuesto Selectivo al Consumo)
+            - 7152 = ICBPER (Impuesto al Consumo de Bolsas de Plástico)
+            - 9995 = Exportación
+            - 9996 = Gratuitas
+            - 9997 = Exonerado
+            - 9998 = Inafecto
+        name:
+          type: string
+          example: "IGV"
+          description: Nombre oficial del tributo ("IGV", "ISC", "ICBPER")
+        taxTypeCode:
+          type: string
+          example: "VAT"
+          description: Código internacional UN/ECE 5153 (VAT para IGV, EXC para ISC, OTH para ICBPER)
+
+    # =========================================================================
+    # LÍNEAS DE DETALLE (INVOICE LINE)
+    # =========================================================================
+    InvoiceLine:
+      type: object
+      description: Detalle del bien o servicio facturado
+      required:
+        - id
+        - invoicedQuantity
+        - lineExtensionAmount
+        - pricingReference
+        - taxTotals
+        - item
+        - price
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          example: 1
+          description: Número correlativo secuencial de la línea (inicia en 1)
+        invoicedQuantity:
+          $ref: '#/components/schemas/QuantityWithUnit'
+        lineExtensionAmount:
+          type: number
+          format: double
+          example: 100.00
+          description: Valor de venta neto de la línea (Cantidad * Valor Unitario sin impuestos)
+        pricingReference:
+          $ref: '#/components/schemas/PricingReference'
+        taxTotals:
+          type: array
+          description: Impuestos desglosados para esta línea específica (IGV, ISC, ICBPER)
+          items:
+            $ref: '#/components/schemas/TaxTotal'
+        item:
+          $ref: '#/components/schemas/InvoiceItem'
+        price:
+          $ref: '#/components/schemas/ItemPrice'
+
+    QuantityWithUnit:
+      type: object
+      required:
+        - value
+        - unitCode
+      properties:
+        value:
+          type: number
+          format: double
+          minimum: 0.0001
+          example: 2.0
+          description: Cantidad numérica facturada
+        unitCode:
+          type: string
+          example: "NIU"
+          description: Código de unidad de medida del Catálogo No. 03 SUNAT (NIU = Unidad, KGM = Kilogramo, ZZ = Servicio)
+
+    PricingReference:
+      type: object
+      description: Referencia al precio unitario comercial que incluye impuestos
+      required:
+        - alternativeConditionPrice
+      properties:
+        alternativeConditionPrice:
+          type: object
+          required:
+            - priceAmount
+            - priceTypeCode
+          properties:
+            priceAmount:
+              type: number
+              format: double
+              example: 59.00
+              description: Precio unitario con impuestos incluidos (Precio de venta público)
+            priceTypeCode:
+              type: string
+              enum: ["01", "02"]
+              example: "01"
+              description: Catálogo 16 SUNAT (01 = Precio unitario con impuesto, 02 = Valor referencial en gratuitas)
+
+    InvoiceItem:
+      type: object
+      required:
+        - description
+      properties:
+        description:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: "Laptop ThinkPad E14 Gen 4 Core i7 16GB SSD 512GB"
+          description: Descripción comercial detallada del producto o servicio
+        sellersItemIdentification:
+          type: object
+          properties:
+            id:
+              type: string
+              maxLength: 30
+              example: "SKU-TP-E14-001"
+              description: Código de producto interno asignado por el vendedor
+        commodityClassification:
+          type: object
+          properties:
+            itemClassificationCode:
+              type: string
+              pattern: '^[0-9]{8}$'
+              example: "43211503"
+              description: Código de producto según catálogo UNSPSC / Catálogo SUNAT (8 dígitos)
+
+    ItemPrice:
+      type: object
+      description: Valor unitario del bien sin incluir ningún impuesto
+      required:
+        - priceAmount
+      properties:
+        priceAmount:
+          type: number
+          format: double
+          minimum: 0.000001
+          example: 50.00
+          description: Valor unitario neto sin impuestos
+
+    # =========================================================================
+    # TOTALES MONETARIOS LEGALES (LEGAL MONETARY TOTAL)
+    # =========================================================================
+    LegalMonetaryTotal:
+      type: object
+      description: Totales monetarios consolidados del comprobante UBL 2.1
+      required:
+        - lineExtensionAmount
+        - taxInclusiveAmount
+        - payableAmount
+      properties:
+        lineExtensionAmount:
+          type: number
+          format: double
+          example: 100.00
+          description: Sumatoria de los valores de venta netos de todas las líneas (Base imponible gravada)
+        taxInclusiveAmount:
+          type: number
+          format: double
+          example: 118.00
+          description: Total de venta que incluye la sumatoria de impuestos
+        allowanceTotalAmount:
+          type: number
+          format: double
+          default: 0.00
+          example: 0.00
+          description: Total de descuentos globales no deducidos de las líneas
+        chargeTotalAmount:
+          type: number
+          format: double
+          default: 0.00
+          example: 0.00
+          description: Total de otros cargos globales no tributarios
+        prepaidAmount:
+          type: number
+          format: double
+          default: 0.00
+          example: 0.00
+          description: Monto total de anticipos aplicados
+        payableAmount:
+          type: number
+          format: double
+          example: 118.00
+          description: Importe final neto a pagar por el cliente
+
+    # =========================================================================
+    # FIRMA DIGITAL Y UBL EXTENSIONS (XMLDSIG)
+    # =========================================================================
+    DigitalSignaturePlaceholder:
+      type: object
+      description: Estructura del nodo de firma digital estándar W3C XMLDSig insertada en `ext:UBLExtensions`
+      properties:
+        id:
+          type: string
+          example: "SignABCSoftware"
+          description: Identificador de la firma digital
+        signatoryParty:
+          type: object
+          properties:
+            partyIdentification:
+              type: string
+              example: "20601234567"
+            partyName:
+              type: string
+              example: "ABC SOFTWARE CORP S.A.C."
+        digitalSignatureAttachment:
+          type: object
+          properties:
+            externalReference:
+              type: string
+              example: "#SignABCSoftware"
+        digestValue:
+          type: string
+          example: "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+          description: Hash SHA-256 en Base64 del contenido canónico XML del comprobante
+        signatureValue:
+          type: string
+          example: "MIIEowIBAAKCAQEA0u9h...[Firma Criptográfica RSA-SHA256 en Base64]..."
+          description: Valor criptográfico generado con la clave privada del certificado digital X.509
+        x509Certificate:
+          type: string
+          example: "MIIFXTCCA0WgAwIBAgIQ...[Certificado Público X.509 en Base64]..."
+          description: Cadena en Base64 del certificado X.509 de la entidad emisora
+
+    # =========================================================================
+    # RESPUESTAS DE EMISIÓN DE FACTURA
+    # =========================================================================
+    InvoiceResponse:
+      type: object
+      required:
+        - status
+        - id
+        - digestValue
+        - qrCodeData
+        - xmlSignedBase64
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: ["FIRMADO_LOCAL", "ENVIADO_SUNAT", "ACEPTADO", "RECHAZADO", "CONTINGENCIA_OFFLINE"]
+          example: "ACEPTADO"
+          description: Estado del ciclo de vida del comprobante
+        id:
+          type: string
+          example: "F001-00001245"
+        digestValue:
+          type: string
+          example: "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+          description: Código Hash SHA-256 para impresión en representación física de ticket/A4
+        qrCodeData:
+          type: string
+          example: "20601234567|01|F001|00001245|18.00|118.00|2026-10-22|6|20109876543|47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+          description: Contenido estándar para el código QR requerido por RS 097-2012
+        xmlSignedBase64:
+          type: string
+          description: Archivo XML oficial firmado digitalmente y codificado en Base64
+        cdrResponse:
+          type: object
+          description: Constancia de Recepción (CDR) devuelta por SUNAT o la OSE
+          properties:
+            responseCode:
+              type: string
+              example: "0"
+              description: "0 = Aceptado, códigos de error en caso de observaciones o rechazo"
+            description:
+              type: string
+              example: "La Factura número F001-00001245 ha sido aceptada."
+            cdrZipBase64:
+              type: string
+              description: Archivo ZIP oficial con el XML del CDR firmado por SUNAT
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-10-22T10:30:05Z"
+
+    # =========================================================================
+    # CATÁLOGO 8 DE SUNAT (RS 234-2006 / RS 097-2012)
+    # =========================================================================
+    Catalogo8Response:
+      type: object
+      required:
+        - catalogo
+        - versionNormativa
+        - totalElementos
+        - items
+      properties:
+        catalogo:
+          type: string
+          example: "Catálogo No. 08 - Código de Tipo de Documento"
+        versionNormativa:
+          type: string
+          example: "RS Nº 234-2006/SUNAT y RS Nº 097-2012/SUNAT"
+        totalElementos:
+          type: integer
+          example: 6
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Catalogo8Item'
+
+    Catalogo8Item:
+      type: object
+      required:
+        - codigo
+        - descripcion
+        - prefijoSerieElectronica
+        - longitudCorrelativo
+        - permiteEmisionElectronica
+        - estado
+      properties:
+        codigo:
+          type: string
+          example: "01"
+          description: Código oficial de dos caracteres según tabla SUNAT
+        descripcion:
+          type: string
+          example: "Factura"
+        prefijoSerieElectronica:
+          type: string
+          example: "F"
+          description: Letra inicial reglamentaria para la serie electrónica
+        longitudCorrelativo:
+          type: integer
+          example: 8
+          description: Máxima cantidad de dígitos del número correlativo (rellenado con ceros a la izquierda)
+        permiteEmisionElectronica:
+          type: boolean
+          example: true
+          description: Indica si el comprobante está habilitado en el SEE-DSC / SEE-OSE
+        estado:
+          type: string
+          enum: ["VIGENTE", "DEROGADO"]
+          example: "VIGENTE"
+
+    # =========================================================================
+    # MIGRACIÓN DEL SISTEMA LEGADO
+    # =========================================================================
+    LegacyMigrationRequest:
+      type: object
+      description: Solicitud de migración con registros históricos del sistema legado
+      required:
+        - loteId
+        - transacciones
+      properties:
+        loteId:
+          type: string
+          format: uuid
+          example: "a819b1f2-7634-4bc1-9c8e-5b12da61e930"
+          description: Identificador único del lote para trazabilidad y auditoría
+        origen:
+          type: string
+          example: "BD_LEGACY_CAJA_01"
+          description: Fuente de datos o estación POS de origen
+        transacciones:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/LegacyTransactionItem'
+
+    LegacyTransactionItem:
+      type: object
+      description: Registro directo de la tabla transaccional del sistema legado
+      required:
+        - fecha
+        - ingreso
+        - salida
+        - producto
+        - nro_documento
+      properties:
+        idRegistroLegado:
+          type: string
+          example: "REG-98432"
+          description: Identificador primario en la base de datos origen
+        fecha:
+          type: string
+          example: "2026-10-22 14:30:00"
+          description: Timestamp original registrado en la base de datos previa
+        ingreso:
+          type: number
+          format: double
+          minimum: 0.01
+          example: 118.00
+          description: Importe total monetario cobrado (representa Total a Pagar con IGV)
+        salida:
+          type: number
+          format: double
+          minimum: 0.0001
+          example: 2.0
+          description: Cantidad física de ítems despachados
+        producto:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: "Teclado Mecánico RGB Switch Blue"
+          description: Descripción comercial del bien
+        nro_documento:
+          type: string
+          example: "001-1245"
+          description: Número de documento en formato legado que será normalizado a UBL
+
+    LegacyMigrationResponse:
+      type: object
+      required:
+        - loteId
+        - totalRecibidos
+        - totalProcesadosExitosis
+        - totalFallidos
+        - resultados
+        - traceHash
+      properties:
+        loteId:
+          type: string
+          format: uuid
+          example: "a819b1f2-7634-4bc1-9c8e-5b12da61e930"
+        totalRecibidos:
+          type: integer
+          example: 1
+        totalProcesadosExitosis:
+          type: integer
+          example: 1
+        totalFallidos:
+          type: integer
+          example: 0
+        traceHash:
+          type: string
+          example: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          description: Hash de integridad y no repudio del lote procesado para auditoría fiscal
+        resultados:
+          type: array
+          items:
+            type: object
+            properties:
+              idRegistroLegado:
+                type: string
+                example: "REG-98432"
+              ublIdGenerado:
+                type: string
+                example: "F001-00001245"
+              estado:
+                type: string
+                enum: ["MIGRADO_EXITOSO", "ERROR_VALIDACION", "OMITIDO_DUPLICADO"]
+                example: "MIGRADO_EXITOSO"
+              baseImponibleCalculada:
+                type: number
+                example: 100.00
+              igvCalculado:
+                type: number
+                example: 18.00
+              totalPagar:
+                type: number
+                example: 118.00
+              mensaje:
+                type: string
+                example: "Documento transformado exitosamente a UBL-Invoice-2.1"
+
+    # =========================================================================
+    # MANEJO DE ERRORES ESTÁNDAR (RFC 7807 PROBLEM DETAILS)
+    # =========================================================================
+    ApiErrorResponse:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+        - errorCode
+        - timestamp
+      properties:
+        type:
+          type: string
+          format: uri
+          example: "https://sunat.gob.pe/errores/0100"
+          description: URI de referencia del error según catálogo de errores SUNAT
+        title:
+          type: string
+          example: "Error de Validación de Esquema UBL"
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+          example: "El RUC del emisor '20601234560' no supera el algoritmo de validación Módulo 11."
+        errorCode:
+          type: string
+          example: "SUNAT-0100"
+          description: Código oficial de error SUNAT o interno de ABC Software Corp
+        invalidParams:
+          type: array
+          description: Lista detallada de campos o atributos que causaron la falla
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: "accountingSupplierParty.ruc"
+              reason:
+                type: string
+                example: "Dígito verificador inválido."
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-10-22T10:30:10Z"

@@ -1,0 +1,226 @@
+openapi: 3.1.0
+info:
+  title: Project API Specification
+  description: >
+    Specification-first OpenAPI definition. All endpoints, schemas, and
+    security parameters must be defined here before implementation.
+  version: 1.0.0
+  contact:
+    name: Architecture Team
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local Development Server
+  - url: https://api.staging.example.com/v1
+    description: Staging Environment
+
+tags:
+  - name: System
+    description: Operational and health endpoints
+  - name: Items
+    description: Core domain resource management
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns operational status of the service
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /items:
+    get:
+      summary: List items
+      description: Retrieve a paginated list of items
+      tags:
+        - Items
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Successful list retrieval
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemListResponse'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Create a new item
+      description: Creates a new resource satisfying domain validation rules
+      tags:
+        - Items
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateItemRequest'
+      responses:
+        '201':
+          description: Item successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /items/{id}:
+    get:
+      summary: Get an item by ID
+      tags:
+        - Items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Item found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+        '404':
+          description: Item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          example: "UP"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-10-22T09:30:00Z"
+
+    Item:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "e2b027c4-6449-4112-8e7c-8d1e389e17b3"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Sample Architecture Spec"
+        description:
+          type: string
+          nullable: true
+          example: "Detailed item description"
+        status:
+          type: string
+          enum: [DRAFT, ACTIVE, ARCHIVED]
+          example: "ACTIVE"
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateItemRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Sample Architecture Spec"
+        description:
+          type: string
+          nullable: true
+
+    ItemListResponse:
+      type: object
+      required:
+        - items
+        - total
+        - page
+        - limit
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+        total:
+          type: integer
+          example: 42
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: "RESOURCE_NOT_FOUND"
+        message:
+          type: string
+          example: "The requested item with ID does not exist."
+        details:
+          type: array
+          items:
+            type: string
+          nullable: true

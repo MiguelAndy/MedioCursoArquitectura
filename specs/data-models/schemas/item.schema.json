@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/item.schema.json",
+  "title": "Item",
+  "description": "Specification for an Item domain entity",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the item"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "Human-readable name of the item"
+    },
+    "description": {
+      "type": ["string", "null"],
+      "maxLength": 500,
+      "description": "Optional extended description"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["DRAFT", "ACTIVE", "ARCHIVED"],
+      "default": "ACTIVE",
+      "description": "Lifecycle state of the item"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 creation timestamp"
+    },
+    "updatedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO-8601 last update timestamp"
+    }
+  },
+  "required": ["id", "name", "status", "createdAt"],
+  "additionalProperties": false
+}
