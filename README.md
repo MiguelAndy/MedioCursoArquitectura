@@ -17,6 +17,7 @@ In a Spec-First workflow, **specifications, API contracts, domain models, and ac
 │   ├── adr/                        # Architecture Decision Records
 │   │   └── 0001-arquitectura-mvc-hexagonal.md
 │   ├── features/                   # Domain & Migration Specifications
+│   │   ├── casos-de-uso.md         # Formal Use Cases (Nubefact Benchmark)
 │   │   ├── dominio-migracion.md    # Legacy to UBL-Invoice-2.1 mapping
 │   │   └── matriz-trazabilidad-ubl-sunat.md # SUNAT vs UBL 2.1 Traceability Matrix
 │   ├── api/                        # General API specifications
