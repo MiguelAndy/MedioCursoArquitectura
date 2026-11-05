@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><!--
+  Ejemplo normativo (datos ficticios): factura con ISC - Catálogo N.° 08, sistema 01 (al valor).
+  Escenario SUP-03: ABC importa la bebida, por lo que es sujeto del ISC en su venta en el país.
+  La tasa de 25 % es ilustrativa; en producción proviene de la parametrización vigente (TasaIsc).
+  Línea 1: valor 48.00 | ISC 48.00 x 25 % = 12.00 | base IGV 48.00 + 12.00 = 60.00 | IGV 10.80
+  Origen: specs/ejemplos/json/03-emitir-factura-isc.request.json
+--><Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2">
+  <ext:UBLExtensions>
+    <ext:UBLExtension>
+      <ext:ExtensionContent><ds:Signature Id="SignatureABC"><ds:SignedInfo><ds:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/><ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/><ds:Reference URI=""><ds:Transforms><ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></ds:Transforms><ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/><ds:DigestValue>/xSELOMqAYrb2XQCXl2q/OrR/wMPJ93e20L68XKdO2A=</ds:DigestValue></ds:Reference></ds:SignedInfo><ds:SignatureValue>K1cwowXpUKRj9CAFWVrYQmJMVnPJ/G3A/HuaddC7OtdIzljfb53uqH5bb3UKJukaBoBjnw1iO9nXJGoEm0upfkJ1kKHfdhyyTV1AvYyXaxOJSSwq+lvnEwfYS+jhokFMXlptwjKa1NqhUTYiyN1P4q5Ag1p/ZX9t0HgxH9UqJzGqjTBnruwjKsC+GOAmte7aRWNqp/A1ewPqAC/O25HdGMN6n6DFwzDMcZGrFAYnIoV8EOG2fgZMbhZoao9KH3YqaAeVscR3XBMMepEpAsgpzWaGe+TzVU3Mv2ejp2z0HgNQVq3ww8jN0chRJakDiErXx2gNHFkxzFJ5ByHGkN5l1g==</ds:SignatureValue><ds:KeyInfo><ds:X509Data><ds:X509SubjectName>CN=ABC SOFTWARE CORP SAC - CERTIFICADO DE PRUEBA,OU=20123456786,O=ABC SOFTWARE CORP SAC,C=PE</ds:X509SubjectName><ds:X509Certificate>MIIDmTCCAoGgAwIBAgIIAiarWvXv1qcwDQYJKoZIhvcNAQEMBQAwezELMAkGA1UEBhMCUEUxHjAcBgNVBAoTFUFCQyBTT0ZUV0FSRSBDT1JQIFNBQzEUMBIGA1UECxMLMjAxMjM0NTY3ODYxNjA0BgNVBAMTLUFCQyBTT0ZUV0FSRSBDT1JQIFNBQyAtIENFUlRJRklDQURPIERFIFBSVUVCQTAeFw0yNjEwMjIxNjAyNDZaFw0yNzEwMjIxNjAyNDZaMHsxCzAJBgNVBAYTAlBFMR4wHAYDVQQKExVBQkMgU09GVFdBUkUgQ09SUCBTQUMxFDASBgNVBAsTCzIwMTIzNDU2Nzg2MTYwNAYDVQQDEy1BQkMgU09GVFdBUkUgQ09SUCBTQUMgLSBDRVJUSUZJQ0FETyBERSBQUlVFQkEwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC77PYQhT9LDJ9qQ/UHOxDq+td6KOdFBIV/tJnZjnueT8mfPe5dcm1d2hrA76g3+jMG/gii4TyoICvkGF/vlNMOYlNsFitOQBbHriiQkK4Sg+AeNvU+ZUhxPBT8F+99GiSdqFPAlzi7A/NZAhvu1k6VEZMxhiimPlxMj8dLtTzrz+UuBfe1PGdqfIguCJAuINzfvlr7Fkwy4uX5X6rkGELtRwar8aQtNe4to/DN6rJZueg3FugYVjmQTQ4F/xS8v7HfTFj4skHnMfTzPJ/1EqBuij+KCTFTTDbyJFRfMIq3OfUX0ivmpgQxkN+0EEWKV6o/a7sKWWOL51ISyYTe3qvlAgMBAAGjITAfMB0GA1UdDgQWBBR3d9RoELT8v9KmM3Q1tpZg4bIXozANBgkqhkiG9w0BAQwFAAOCAQEAoYr/M6Z7iRypegiAdx3IR3uxymyhAjh4EsNrRjWq8fMxukGPdjQEKKNdlkW0bC6yafnSvJdlcFy4hwDzz/DL9S2VGlD38bEt0+o/+ntTLet3I60GgC5CxhtTqixR19c5uXJO3Z5N1Il3ahC4CzVeEZVc0QM8zBG+H5m+2IRTaren2RV+aR7DZq0KOrEOLcdFyOFl/mQ6sTpgIuW/qy9Wn6Cg5zv+eVagC1MCkXWeXQ6VUp1iOyOS0cSmvIx8mHH+fXjxICwcuSHNsE1BCF7zNmdNhSbJd57JgTAelvXhUm4+z+dtMeOLNtshsG/YUP9AL4C7FC69SLOZotocazKeMw==</ds:X509Certificate></ds:X509Data></ds:KeyInfo></ds:Signature></ext:ExtensionContent>
+    </ext:UBLExtension>
+  </ext:UBLExtensions>
+  <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
+  <cbc:CustomizationID schemeAgencyName="PE:SUNAT">2.0</cbc:CustomizationID>
+  <cbc:ID>F001-2</cbc:ID>
+  <cbc:IssueDate>2026-10-22</cbc:IssueDate>
+  <cbc:IssueTime>11:05:00</cbc:IssueTime>
+  <cbc:InvoiceTypeCode listAgencyName="PE:SUNAT" listID="0101" listName="Tipo de Documento" listSchemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo51" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo01" name="Tipo de Operacion">01</cbc:InvoiceTypeCode>
+  <cbc:Note languageLocaleID="1000">SON: CIENTO SETENTA Y UNO CON 10/100 SOLES</cbc:Note>
+  <cbc:DocumentCurrencyCode listAgencyName="United Nations Economic Commission for Europe" listID="ISO 4217 Alpha" listName="Currency">PEN</cbc:DocumentCurrencyCode>
+  <cbc:LineCountNumeric>2</cbc:LineCountNumeric>
+  <cac:Signature>
+    <cbc:ID>IDSignABC</cbc:ID>
+    <cac:SignatoryParty>
+      <cac:PartyIdentification>
+        <cbc:ID>20123456786</cbc:ID>
+      </cac:PartyIdentification>
+      <cac:PartyName>
+        <cbc:Name>ABC SOFTWARE CORP S.A.C.</cbc:Name>
+      </cac:PartyName>
+    </cac:SignatoryParty>
+    <cac:DigitalSignatureAttachment>
+      <cac:ExternalReference>
+        <cbc:URI>#SignatureABC</cbc:URI>
+      </cac:ExternalReference>
+    </cac:DigitalSignatureAttachment>
+  </cac:Signature>
+  <cac:AccountingSupplierParty>
+    <cac:Party>
+      <cac:PartyIdentification>
+        <cbc:ID schemeAgencyName="PE:SUNAT" schemeID="6" schemeName="Documento de Identidad" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">20123456786</cbc:ID>
+      </cac:PartyIdentification>
+      <cac:PartyName>
+        <cbc:Name>ABC ABARROTES</cbc:Name>
+      </cac:PartyName>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>ABC SOFTWARE CORP S.A.C.</cbc:RegistrationName>
+        <cac:RegistrationAddress>
+          <cbc:ID schemeAgencyName="PE:INEI" schemeName="Ubigeos">100101</cbc:ID>
+          <cbc:AddressTypeCode listAgencyName="PE:SUNAT" listName="Establecimientos anexos">0000</cbc:AddressTypeCode>
+          <cbc:CityName>HUANUCO</cbc:CityName>
+          <cbc:CountrySubentity>HUANUCO</cbc:CountrySubentity>
+          <cbc:District>HUANUCO</cbc:District>
+          <cac:AddressLine>
+            <cbc:Line>JR. COMERCIO 123</cbc:Line>
+          </cac:AddressLine>
+          <cac:Country>
+            <cbc:IdentificationCode listAgencyName="United Nations Economic Commission for Europe" listID="ISO 3166-1" listName="Country">PE</cbc:IdentificationCode>
+          </cac:Country>
+        </cac:RegistrationAddress>
+      </cac:PartyLegalEntity>
+    </cac:Party>
+  </cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty>
+    <cac:Party>
+      <cac:PartyIdentification>
+        <cbc:ID schemeAgencyName="PE:SUNAT" schemeID="6" schemeName="Documento de Identidad" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">20456789120</cbc:ID>
+      </cac:PartyIdentification>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>DISTRIBUIDORA SANTA ROSA DEL HUALLAGA E.I.R.L.</cbc:RegistrationName>
+      </cac:PartyLegalEntity>
+    </cac:Party>
+  </cac:AccountingCustomerParty>
+  <cac:PaymentTerms>
+    <cbc:ID>FormaPago</cbc:ID>
+    <cbc:PaymentMeansID>Contado</cbc:PaymentMeansID>
+  </cac:PaymentTerms>
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="PEN">38.10</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="PEN">133.00</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="PEN">26.10</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <cac:TaxScheme>
+          <cbc:ID schemeAgencyName="PE:SUNAT" schemeName="Codigo de tributos" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo05">1000</cbc:ID>
+          <cbc:Name>IGV</cbc:Name>
+          <cbc:TaxTypeCode>VAT</cbc:TaxTypeCode>
+        </cac:TaxScheme>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="PEN">48.00</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="PEN">12.00</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <cac:TaxScheme>
+          <cbc:ID schemeAgencyName="PE:SUNAT" schemeName="Codigo de tributos" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo05">2000</cbc:ID>
+          <cbc:Name>ISC</cbc:Name>
+          <cbc:TaxTypeCode>EXC</cbc:TaxTypeCode>
+        </cac:TaxScheme>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="PEN">133.00</cbc:LineExtensionAmount>
+    <cbc:TaxInclusiveAmount currencyID="PEN">171.10</cbc:TaxInclusiveAmount>
+    <cbc:PayableAmount currencyID="PEN">171.10</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="NIU" unitCodeListAgencyName="United Nations Economic Commission for Europe" unitCodeListID="UN/ECE rec 20">24</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="PEN">48.00</cbc:LineExtensionAmount>
+    <cac:PricingReference>
+      <cac:AlternativeConditionPrice>
+        <cbc:PriceAmount currencyID="PEN">2.95</cbc:PriceAmount>
+        <cbc:PriceTypeCode listAgencyName="PE:SUNAT" listName="Tipo de Precio" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo16">01</cbc:PriceTypeCode>
+      </cac:AlternativeConditionPrice>
+    </cac:PricingReference>
+    <cac:TaxTotal>
+      <cbc:TaxAmount currencyID="PEN">22.80</cbc:TaxAmount>
+      <cac:TaxSubtotal>
+        <cbc:TaxableAmount currencyID="PEN">60.00</cbc:TaxableAmount>
+        <cbc:TaxAmount currencyID="PEN">10.80</cbc:TaxAmount>
+        <cac:TaxCategory>
+          <cbc:Percent>18.00</cbc:Percent>
+          <cbc:TaxExemptionReasonCode listAgencyName="PE:SUNAT" listName="Afectacion del IGV" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo07">10</cbc:TaxExemptionReasonCode>
+          <cac:TaxScheme>
+            <cbc:ID schemeAgencyName="PE:SUNAT" schemeName="Codigo de tributos" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo05">1000</cbc:ID>
+            <cbc:Name>IGV</cbc:Name>
+            <cbc:TaxTypeCode>VAT</cbc:TaxTypeCode>
+          </cac:TaxScheme>
+        </cac:TaxCategory>
+      </cac:TaxSubtotal>
+      <cac:TaxSubtotal>
+        <cbc:TaxableAmount currencyID="PEN">48.00</cbc:TaxableAmount>
+        <cbc:TaxAmount currencyID="PEN">12.00</cbc:TaxAmount>
+        <cac:TaxCategory>
+          <cbc:Percent>25.00</cbc:Percent>
+          <cbc:TierRange>01</cbc:TierRange>
+          <cac:TaxScheme>
+            <cbc:ID schemeAgencyName="PE:SUNAT" schemeName="Codigo de tributos" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo05">2000</cbc:ID>
+            <cbc:Name>ISC</cbc:Name>
+            <cbc:TaxTypeCode>EXC</cbc:TaxTypeCode>
+          </cac:TaxScheme>
+        </cac:TaxCategory>
+      </cac:TaxSubtotal>
+    </cac:TaxTotal>
+    <cac:Item>
+      <cbc:Description>BEBIDA ENERGIZANTE IMPORTADA LATA 250 ML</cbc:Description>
+      <cac:SellersItemIdentification>
+        <cbc:ID>BEB-ENE-01</cbc:ID>
+      </cac:SellersItemIdentification>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="PEN">2.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>2</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="BX" unitCodeListAgencyName="United Nations Economic Commission for Europe" unitCodeListID="UN/ECE rec 20">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="PEN">85.00</cbc:LineExtensionAmount>
+    <cac:PricingReference>
+      <cac:AlternativeConditionPrice>
+        <cbc:PriceAmount currencyID="PEN">100.30</cbc:PriceAmount>
+        <cbc:PriceTypeCode listAgencyName="PE:SUNAT" listName="Tipo de Precio" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo16">01</cbc:PriceTypeCode>
+      </cac:AlternativeConditionPrice>
+    </cac:PricingReference>
+    <cac:TaxTotal>
+      <cbc:TaxAmount currencyID="PEN">15.30</cbc:TaxAmount>
+      <cac:TaxSubtotal>
+        <cbc:TaxableAmount currencyID="PEN">85.00</cbc:TaxableAmount>
+        <cbc:TaxAmount currencyID="PEN">15.30</cbc:TaxAmount>
+        <cac:TaxCategory>
+          <cbc:Percent>18.00</cbc:Percent>
+          <cbc:TaxExemptionReasonCode listAgencyName="PE:SUNAT" listName="Afectacion del IGV" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo07">10</cbc:TaxExemptionReasonCode>
+          <cac:TaxScheme>
+            <cbc:ID schemeAgencyName="PE:SUNAT" schemeName="Codigo de tributos" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo05">1000</cbc:ID>
+            <cbc:Name>IGV</cbc:Name>
+            <cbc:TaxTypeCode>VAT</cbc:TaxTypeCode>
+          </cac:TaxScheme>
+        </cac:TaxCategory>
+      </cac:TaxSubtotal>
+    </cac:TaxTotal>
+    <cac:Item>
+      <cbc:Description>ACEITE VEGETAL CAJA X 12 BOTELLAS 1 L</cbc:Description>
+      <cac:SellersItemIdentification>
+        <cbc:ID>ACE-VEG-12</cbc:ID>
+      </cac:SellersItemIdentification>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="PEN">85.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+</Invoice>

@@ -1,0 +1,28 @@
+flowchart TB
+  subgraph LAN["Local de ABC: LAN y Wi-Fi"]
+    subgraph SRV["Servidor Windows · ABC-Comercial-Servidor-1.0.0.msi"]
+      SVC["Servicio de Windows abc-comercial<br/>JRE embebido · puerto 8443"]
+      PG[("PostgreSQL 16")]
+      DOCS[("D:/abc/documentos<br/>XML · CDR · PDF")]
+      BK["Respaldo diario<br/>pg_dump + documentos"]
+    end
+    PC1["PC Caja 1 · cliente MSI<br/>series B001 / F001"]
+    PC2["PC Almacén · cliente MSI<br/>serie F002"]
+    TAB["Celular o tablet Android · APK<br/>series B002 / F003"]
+    IMP["Ticketera 80 mm"]
+  end
+  subgraph NET["Internet"]
+    OSE[("OSE")]
+    SUNAT[("SUNAT")]
+    PAD[("Padrón reducido RUC")]
+  end
+  PC1 -- "HTTPS" --> SVC
+  PC2 -- "HTTPS" --> SVC
+  TAB -- "HTTPS · Wi-Fi o VPN" --> SVC
+  PC1 --> IMP
+  SVC --> PG
+  SVC --> DOCS
+  SVC --> BK
+  SVC -- "SOAP/HTTPS · cola con reintentos" --> OSE
+  SVC -- "SOAP/HTTPS" --> SUNAT
+  SVC -- "descarga diaria" --> PAD

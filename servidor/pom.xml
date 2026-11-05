@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ADR-03: Java 21 + Spring Boot 3 -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.6</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>pe.abc</groupId>
+    <artifactId>abc-comercial-servidor</artifactId>
+    <version>0.2.0</version>
+    <name>ABC Comercial - Servidor (fase 2: emisión y XML UBL 2.1)</name>
+    <description>
+        Implementación de la fase 2: emisión de facturas y boletas con generación del XML a partir de
+        UBL-Invoice-2.1.xsd, siguiendo los contratos Spec-First de ../specs.
+    </description>
+
+    <properties>
+        <java.version>21</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- Fuente de verdad: los contratos de la fase 1, NO copias -->
+        <specs.dir>${project.basedir}/../specs</specs.dir>
+        <json-schema-validator.version>1.5.6</json-schema-validator.version>
+        <archunit.version>1.4.1</archunit.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- JAXB: clases generadas desde UBL-Invoice-2.1.xsd -->
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-runtime</artifactId>
+        </dependency>
+
+        <!-- Capa 1 (VAL-EST-01): validación con los JSON Schema 2020-12 de specs/schemas -->
+        <dependency>
+            <groupId>com.networknt</groupId>
+            <artifactId>json-schema-validator</artifactId>
+            <version>${json-schema-validator.version}</version>
+        </dependency>
+
+        <!-- Pruebas -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.xmlunit</groupId>
+            <artifactId>xmlunit-assertj3</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>${archunit.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <!-- XSD oficiales OASIS (specs/ubl) para validar cada XML generado (VAL-EST-02) -->
+            <resource>
+                <directory>${specs.dir}/ubl/xsd-oasis-ubl-2.1</directory>
+                <targetPath>xsd/ubl-2.1</targetPath>
+                <includes>
+                    <include>**/*.xsd</include>
+                </includes>
+            </resource>
+            <!-- JSON Schema de la fase 1 para validar las solicitudes (VAL-EST-01) -->
+            <resource>
+                <directory>${specs.dir}/schemas</directory>
+                <targetPath>schemas</targetPath>
+            </resource>
+        </resources>
+
+        <plugins>
+            <!-- Clases Java generadas a partir de specs/ubl/xsd-oasis-ubl-2.1/maindoc/UBL-Invoice-2.1.xsd -->
+            <plugin>
+                <groupId>org.jvnet.jaxb</groupId>
+                <artifactId>jaxb-maven-plugin</artifactId>
+                <version>4.0.8</version>
+                <executions>
+                    <execution>
+                        <id>generar-clases-ubl-invoice-2.1</id>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <configuration>
+                            <schemaDirectory>${specs.dir}/ubl/xsd-oasis-ubl-2.1/maindoc</schemaDirectory>
+                            <schemaIncludes>
+                                <include>UBL-Invoice-2.1.xsd</include>
+                            </schemaIncludes>
+                            <noFileHeader>true</noFileHeader>
+                            <episode>false</episode>
+                            <encoding>UTF-8</encoding>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- Cobertura: mvnw verify falla si baja del 90 % de líneas del código propio -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.13</version>
+                <configuration>
+                    <includes>
+                        <include>pe/abc/**</include>
+                    </includes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>preparar-agente</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>reporte</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>verificar-cobertura</id>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.90</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

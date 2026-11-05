@@ -1,0 +1,40 @@
+flowchart LR
+  subgraph PRIM["Adaptadores primarios (conducen)"]
+    direction TB
+    REST["REST /api/v1<br/>controladores MVC"]
+    SCH["Planificador<br/>resumen diario · reintentos · alertas"]
+    EVT["Oyentes de eventos"]
+    CLIM["Carga de migración"]
+  end
+  subgraph HEX["Núcleo"]
+    direction TB
+    PIN{{"Puertos de entrada<br/>(casos de uso)"}}
+    CORE["Dominio<br/>Comprobante · MotorTributario<br/>Producto · Existencia · Lote"]
+    POUT{{"Puertos de salida<br/>(interfaces)"}}
+    PIN --> CORE --> POUT
+  end
+  subgraph SEC["Adaptadores secundarios (conducidos)"]
+    direction TB
+    PG[("PostgreSQL")]
+    UBL["Generador UBL 2.1"]
+    FIR["Firmador XMLDSig<br/>certificado .pfx"]
+    OSE["Cliente SOAP OSE"]
+    SUN["Cliente SOAP SUNAT"]
+    RUCA["Padrón RUC / API"]
+    PDF["PDF + QR"]
+    MAIL["Correo / WhatsApp"]
+    LEGA["Lector del legado<br/>CSV · XLSX · Access · DBF"]
+  end
+  REST --> PIN
+  SCH --> PIN
+  EVT --> PIN
+  CLIM --> PIN
+  POUT --> PG
+  POUT --> UBL
+  POUT --> FIR
+  POUT --> OSE
+  POUT --> SUN
+  POUT --> RUCA
+  POUT --> PDF
+  POUT --> MAIL
+  POUT --> LEGA

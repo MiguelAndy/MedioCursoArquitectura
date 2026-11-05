@@ -1,0 +1,25 @@
+flowchart LR
+  subgraph USR["Usuarios de ABC Software Corp"]
+    direction TB
+    CAJ["Cajero<br/>venta minorista"]
+    VEN["Vendedor mayorista<br/>app Android"]
+    ALM["Almacenero"]
+    CON["Contador"]
+    ADM["Administrador"]
+    GER["Gerente"]
+  end
+  SIS[["Sistema ABC Comercial<br/>facturación electrónica · inventario<br/>registros · migración"]]
+  OSE[("OSE<br/>Operador de Servicios Electrónicos")]
+  SUNAT[("SUNAT<br/>SEE · consultas")]
+  RUC[("Padrón reducido del RUC<br/>o servicio de consulta")]
+  MSG[("Correo / WhatsApp")]
+  LEG[("Software básico legado<br/>fichas de almacén")]
+  CLI["Cliente (adquirente)"]
+  USR --> SIS
+  SIS -- "XML UBL 2.1 firmado (SOAP)" --> OSE
+  OSE -- "CDR" --> SIS
+  OSE -. "remite lo validado" .-> SUNAT
+  SIS -- "sendBill · sendSummary · getStatus" --> SUNAT
+  SIS -- "valida RUC" --> RUC
+  SIS -- "PDF y XML" --> MSG --> CLI
+  LEG -- "exportación única<br/>CSV / XLSX" --> SIS

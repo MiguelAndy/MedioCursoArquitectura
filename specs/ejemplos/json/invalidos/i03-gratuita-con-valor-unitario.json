@@ -1,0 +1,11 @@
+{
+  "tipoComprobante": "01",
+  "serie": "F001",
+  "tipoOperacion": "0101",
+  "moneda": "PEN",
+  "cliente": { "tipoDocumento": "6", "numeroDocumento": "20456789120", "razonSocial": "DISTRIBUIDORA SANTA ROSA DEL HUALLAGA E.I.R.L." },
+  "items": [
+    { "descripcion": "GALLETAS DE SODA - BONIFICACION", "unidadMedida": "PK", "cantidad": "6", "valorUnitario": "5.00", "tipoAfectacionIgv": "15" }
+  ],
+  "formaPago": { "tipo": "CONTADO" }
+}

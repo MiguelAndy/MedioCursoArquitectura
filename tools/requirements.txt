@@ -1,0 +1,7 @@
+jsonschema>=4.23
+referencing>=0.35
+lxml>=5.0
+PyYAML>=6.0
+openpyxl>=3.1
+openapi-spec-validator>=0.7
+python-docx>=1.1

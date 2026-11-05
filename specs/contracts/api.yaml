@@ -1,0 +1,1765 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: ABC Comercial - API de facturación electrónica, inventario y migración
+  version: 1.0.0
+  summary: Contrato Spec-First del monolito modular MVC de ABC Software Corp (fase 1).
+  description: |
+    Contrato de interfaz entre las vistas nativas (Windows/Android) y los controladores del monolito.
+    Se escribió **antes** que cualquier línea de lógica de negocio (metodología Spec-First):
+    los servidores implementan las interfaces generadas a partir de este archivo y los clientes
+    consumen un SDK generado del mismo archivo.
+
+    Convenciones:
+    - Importes como texto decimal con el formato SUNAT (n(12,2) importes, n(12,10) unitarios).
+    - Errores en `application/problem+json` (RFC 9457) con la regla `VAL-*` violada.
+    - `POST /comprobantes` exige la cabecera `Idempotency-Key`: un reintento del cliente nunca duplica un comprobante.
+    - Concurrencia optimista con `ETag` / `If-Match` en recursos editables.
+    - Extensiones de trazabilidad por operación: `x-modulo` (bounded context), `x-puerto-entrada`
+      (caso de uso hexagonal que atiende el controlador), `x-casos-uso` y `x-reglas`.
+  contact:
+    name: Equipo de arquitectura ABC Software Corp
+  license:
+    name: Uso académico
+    identifier: CC-BY-4.0
+servers:
+  - url: https://servidor-abc:8443/api/v1
+    description: Servidor on-premise en la LAN de ABC (instalado con MSI como servicio de Windows)
+  - url: http://localhost:8080/api/v1
+    description: Desarrollo local
+security:
+  - bearerAuth: []
+tags:
+  - name: Autenticación
+    description: Sesión por dispositivo y renovación de tokens (módulo seguridad).
+  - name: Configuración
+    description: Empresa, series por punto de emisión, certificado digital y canal OSE/SUNAT.
+  - name: Catálogos SUNAT
+    description: Catálogos del Anexo N.° 8 y parámetros tributarios con vigencia (módulo tributacion).
+  - name: Terceros
+    description: Clientes y proveedores con validación de RUC/DNI (cierra la brecha G-01).
+  - name: Productos
+    description: Maestro de productos con afectación IGV (Cat. 07), ISC (Cat. 08) e ICBPER.
+  - name: Inventario
+    description: Kardex alineado al Formato 12.1 de la RS 234-2006.
+  - name: Comprobantes
+    description: Emisión, consulta y descarga de CPE UBL 2.1 firmados (factura, boleta, notas).
+  - name: Bajas y resúmenes
+    description: Comunicación de baja (RA) y resumen diario (RC) vía sendSummary/getStatus.
+  - name: Registros
+    description: Registro de Ventas (14.1/RVIE) e Inventario Permanente en Unidades Físicas (12.1).
+  - name: Migración
+    description: Carga del legado a staging, revisión, conciliación, confirmación y linaje.
+  - name: Sistema
+    description: Salud, versión mínima de clientes MSI/APK y auditoría.
+
+paths:
+  /auth/token:
+    post:
+      tags: [Autenticación]
+      operationId: obtenerToken
+      summary: Inicia sesión desde un dispositivo registrado
+      security: []
+      x-modulo: seguridad
+      x-puerto-entrada: AutenticarUsuarioUseCase
+      x-casos-uso: [CU-27]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TokenRequest' }
+      responses:
+        '200':
+          description: Sesión iniciada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '426':
+          description: La versión del cliente es menor que la mínima soportada; debe actualizar el MSI o el APK.
+          content:
+            application/problem+json:
+              schema: { $ref: '../schemas/problema.schema.json' }
+
+  /auth/token/renovacion:
+    post:
+      tags: [Autenticación]
+      operationId: renovarToken
+      summary: Renueva el token de acceso con el token de refresco
+      security: []
+      x-modulo: seguridad
+      x-puerto-entrada: AutenticarUsuarioUseCase
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: Token renovado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+
+  /configuracion/empresa:
+    get:
+      tags: [Configuración]
+      operationId: obtenerEmpresa
+      summary: Datos del emisor y sus establecimientos (domicilio fiscal y anexos)
+      x-modulo: configuracion
+      x-puerto-entrada: ConsultarEmpresaUseCase
+      x-casos-uso: [CU-24]
+      responses:
+        '200':
+          description: Empresa emisora
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Empresa' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+
+  /configuracion/series:
+    get:
+      tags: [Configuración]
+      operationId: listarSeries
+      summary: Series autorizadas por tipo de comprobante y punto de emisión
+      x-modulo: facturacion
+      x-puerto-entrada: GestionarSeriesUseCase
+      x-casos-uso: [CU-24]
+      parameters:
+        - name: tipoComprobante
+          in: query
+          schema: { $ref: '../schemas/catalogos-sunat.schema.json#/$defs/Cat01ComprobanteEmitible' }
+        - name: puntoEmisionId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Series
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Serie' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+    post:
+      tags: [Configuración]
+      operationId: crearSerie
+      summary: Registra una serie para un punto de emisión (una serie por caja o dispositivo)
+      x-modulo: facturacion
+      x-puerto-entrada: GestionarSeriesUseCase
+      x-casos-uso: [CU-24]
+      x-reglas: [VAL-NUM-01, VAL-NUM-04]
+      x-roles: [ADMINISTRADOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SerieRequest' }
+      responses:
+        '201':
+          description: Serie creada
+          headers:
+            Location: { $ref: '#/components/headers/Location' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Serie' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+        '422': { $ref: '#/components/responses/ReglaDeNegocio' }
+
+  /configuracion/certificados:
+    post:
+      tags: [Configuración]
+      operationId: cargarCertificado
+      summary: Carga el certificado digital (.pfx) usado para firmar los XML
+      description: El certificado y su clave quedan cifrados en el servidor; nunca se distribuyen a los dispositivos (ADR-04).
+      x-modulo: cpe
+      x-puerto-entrada: GestionarCertificadoUseCase
+      x-casos-uso: [CU-25]
+      x-reglas: [VAL-ENV-02]
+      x-roles: [ADMINISTRADOR]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [archivo, clave]
+              properties:
+                archivo:
+                  type: string
+                  contentMediaType: application/x-pkcs12
+                clave:
+                  type: string
+                  format: password
+                  writeOnly: true
+      responses:
+        '201':
+          description: Certificado cargado y verificado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CertificadoInfo' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '422': { $ref: '#/components/responses/ReglaDeNegocio' }
+
+  /configuracion/certificados/vigente:
+    get:
+      tags: [Configuración]
+      operationId: obtenerCertificadoVigente
+      summary: Metadatos del certificado vigente (sin la llave privada)
+      x-modulo: cpe
+      x-puerto-entrada: GestionarCertificadoUseCase
+      x-casos-uso: [CU-25]
+      responses:
+        '200':
+          description: Certificado vigente
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CertificadoInfo' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /configuracion/canal-envio:
+    put:
+      tags: [Configuración]
+      operationId: configurarCanalEnvio
+      summary: Define el canal de envío (OSE o SUNAT) y el ambiente (beta o producción)
+      x-modulo: cpe
+      x-puerto-entrada: ConfigurarCanalEnvioUseCase
+      x-casos-uso: [CU-26]
+      x-reglas: [VAL-ENV-06]
+      x-roles: [ADMINISTRADOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CanalEnvioRequest' }
+      responses:
+        '200':
+          description: Canal configurado y probado (conexión y credenciales)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CanalEnvio' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '422': { $ref: '#/components/responses/ReglaDeNegocio' }
+
+  /catalogos/{numero}:
+    get:
+      tags: [Catálogos SUNAT]
+      operationId: obtenerCatalogo
+      summary: Catálogo SUNAT (Anexo N.° 8) o tabla de la RS 234-2006 vigente a una fecha
+      x-modulo: tributacion
+      x-puerto-entrada: ConsultarCatalogoUseCase
+      x-casos-uso: [CU-12]
+      parameters:
+        - name: numero
+          in: path
+          required: true
+          description: Número de catálogo SUNAT (01..60) o tabla de libros (T02, T05, T06, T10, T12).
+          schema:
+            type: string
+            pattern: '^(\d{2}|T\d{2})$'
+            examples: ['08']
+        - name: fecha
+          in: query
+          description: Fecha de vigencia (por defecto, hoy).
+          schema: { $ref: '../schemas/comun.schema.json#/$defs/Fecha' }
+      responses:
+        '200':
+          description: Catálogo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Catalogo' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /parametros-tributarios:
+    get:
+      tags: [Catálogos SUNAT]
+      operationId: listarParametrosTributarios
+      summary: Parámetros normativos con vigencia (tasa IGV, tarifa ICBPER, umbrales y plazos)
+      x-modulo: tributacion
+      x-puerto-entrada: ConsultarParametrosTributariosUseCase
+      x-reglas: [VAL-TRB-01, VAL-TRB-06, VAL-BOL-01, VAL-FEC-02, VAL-BAJ-01]
+      parameters:
+        - name: fecha
+          in: query
+          schema: { $ref: '../schemas/comun.schema.json#/$defs/Fecha' }
+      responses:
+        '200':
+          description: Parámetros vigentes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ParametroTributario' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+
+  /terceros:
+    get:
+      tags: [Terceros]
+      operationId: buscarTerceros
+      summary: Busca clientes o proveedores por documento o nombre
+      x-modulo: terceros
+      x-puerto-entrada: BuscarTercerosUseCase
+      x-casos-uso: [CU-11]
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string, minLength: 2 }
+        - name: tipoDocumento
+          in: query
+          schema: { $ref: '../schemas/catalogos-sunat.schema.json#/$defs/Cat06TipoDocumentoIdentidad' }
+        - name: numeroDocumento
+          in: query
+          schema: { type: string }
+        - name: rol
+          in: query
+          schema: { type: string, enum: [CLIENTE, PROVEEDOR] }
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Tamano'
+      responses:
+        '200':
+          description: Página de terceros
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaTerceros' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+    post:
+      tags: [Terceros]
+      operationId: registrarTercero
+      summary: Registra un cliente o proveedor validando su documento
+      x-modulo: terceros
+      x-puerto-entrada: RegistrarTerceroUseCase
+      x-casos-uso: [CU-11]
+      x-reglas: [VAL-ID-01, VAL-ID-02, VAL-ID-04, VAL-ID-06]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/tercero.schema.json#/$defs/TerceroRequest' }
+      responses:
+        '201':
+          description: Tercero registrado
+          headers:
+            Location: { $ref: '#/components/headers/Location' }
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/tercero.schema.json#/$defs/Tercero' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+        '422': { $ref: '#/components/responses/ReglaDeNegocio' }
+
+  /terceros/{terceroId}:
+    parameters:
+      - name: terceroId
+        in: path
+        required: true
+        schema: { $ref: '../schemas/comun.schema.json#/$defs/Uuid' }
+    get:
+      tags: [Terceros]
+      operationId: obtenerTercero
+      summary: Obtiene un tercero
+      x-modulo: terceros
+      x-puerto-entrada: BuscarTercerosUseCase
+      responses:
+        '200':
+          description: Tercero
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/tercero.schema.json#/$defs/Tercero' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+    put:
+      tags: [Terceros]
+      operationId: actualizarTercero
+      summary: Actualiza un tercero (concurrencia optimista)
+      x-modulo: terceros
+      x-puerto-entrada: RegistrarTerceroUseCase
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/tercero.schema.json#/$defs/TerceroRequest' }
+      responses:
+        '200':
+          description: Tercero actualizado
+          content:
+            application/json:
+              schema: { $ref: '../schemas/tercero.schema.json#/$defs/Tercero' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '412': { $ref: '#/components/responses/PrecondicionFallida' }
+        '422': { $ref: '#/components/responses/ReglaDeNegocio' }
+
+  /consultas/ruc/{ruc}:
+    get:
+      tags: [Terceros]
+      operationId: consultarRuc
+      summary: Valida un RUC (formato, dígito verificador) y lo consulta en el padrón
+      description: Cierra la brecha "no valida RUCs" (G-01). Fuente primaria, el padrón reducido del RUC descargado a diario; si falla, un servicio externo (puerto ConsultaContribuyentePort).
+      x-modulo: terceros
+      x-puerto-entrada: ConsultarRucUseCase
+      x-casos-uso: [CU-11]
+      x-reglas: [VAL-ID-01, VAL-ID-02, VAL-ID-04]
+      parameters:
+        - name: ruc
+          in: path
+          required: true
+          schema: { type: string, pattern: '^\d{11}$' }
+      responses:
+        '200':
+          description: Resultado de la validación y consulta
+          content:
+            application/json:
+              schema: { $ref: '../schemas/tercero.schema.json#/$defs/ConsultaRucResponse' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '503': { $ref: '#/components/responses/ServicioNoDisponible' }
+
+  /productos:
+    get:
+      tags: [Productos]
+      operationId: buscarProductos
+      summary: Busca productos por código, código de barras o texto
+      x-modulo: catalogo
+      x-puerto-entrada: BuscarProductosUseCase
+      x-casos-uso: [CU-12]
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: codigo
+          in: query
+          schema: { type: string }
+        - name: gtin
+          in: query
+          schema: { type: string, pattern: '^\d{8,14}$' }
+        - name: activo
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Tamano'
+      responses:
+        '200':
+          description: Página de productos
+          content:
+            application/json:
+              schema: { $ref: '../schemas/producto.schema.json#/$defs/PaginaProductos' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+    post:
+      tags: [Productos]
+      operationId: crearProducto
+      summary: Crea un producto con su tratamiento tributario por defecto
+      x-modulo: catalogo
+      x-puerto-entrada: GestionarProductoUseCase
+      x-casos-uso: [CU-12]
+      x-reglas: [VAL-ITM-03, VAL-ITM-06, VAL-TRB-03, VAL-TRB-04]
+      x-roles: [ADMINISTRADOR, CONTADOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/producto.schema.json#/$defs/ProductoRequest' }
+      responses:
+        '201':
+          description: Producto creado
+          headers:
+            Location: { $ref: '#/components/headers/Location' }
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/producto.schema.json#/$defs/Producto' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+
+  /productos/{productoId}:
+    parameters:
+      - $ref: '#/components/parameters/ProductoId'
+    get:
+      tags: [Productos]
+      operationId: obtenerProducto
+      summary: Obtiene un producto
+      x-modulo: catalogo
+      x-puerto-entrada: BuscarProductosUseCase
+      responses:
+        '200':
+          description: Producto
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/producto.schema.json#/$defs/Producto' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+    put:
+      tags: [Productos]
+      operationId: actualizarProducto
+      summary: Actualiza un producto (concurrencia optimista)
+      x-modulo: catalogo
+      x-puerto-entrada: GestionarProductoUseCase
+      x-roles: [ADMINISTRADOR, CONTADOR]
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/producto.schema.json#/$defs/ProductoRequest' }
+      responses:
+        '200':
+          description: Producto actualizado
+          content:
+            application/json:
+              schema: { $ref: '../schemas/producto.schema.json#/$defs/Producto' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '412': { $ref: '#/components/responses/PrecondicionFallida' }
+
+  /productos/importaciones:
+    post:
+      tags: [Productos]
+      operationId: importarProductos
+      summary: Importa productos desde una hoja de cálculo (proceso asíncrono)
+      x-modulo: catalogo
+      x-puerto-entrada: ImportarProductosUseCase
+      x-casos-uso: [CU-13]
+      x-roles: [ADMINISTRADOR]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [archivo]
+              properties:
+                archivo:
+                  type: string
+                  contentMediaType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        '202':
+          description: Importación aceptada; el resultado se consulta en el enlace devuelto
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProcesoAceptado' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+
+  /inventario/existencias:
+    get:
+      tags: [Inventario]
+      operationId: consultarExistencias
+      summary: Stock por almacén y producto
+      x-modulo: inventario
+      x-puerto-entrada: ConsultarExistenciasUseCase
+      x-casos-uso: [CU-16]
+      parameters:
+        - name: almacenId
+          in: query
+          schema: { type: string }
+        - name: productoId
+          in: query
+          schema: { $ref: '../schemas/comun.schema.json#/$defs/Uuid' }
+        - name: q
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Existencias
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '../schemas/inventario.schema.json#/$defs/Existencia' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+
+  /inventario/movimientos:
+    get:
+      tags: [Inventario]
+      operationId: listarMovimientos
+      summary: Movimientos de inventario (kardex) con filtros
+      x-modulo: inventario
+      x-puerto-entrada: ConsultarExistenciasUseCase
+      x-casos-uso: [CU-16]
+      parameters:
+        - name: productoId
+          in: query
+          schema: { $ref: '../schemas/comun.schema.json#/$defs/Uuid' }
+        - name: almacenId
+          in: query
+          schema: { type: string }
+        - name: origen
+          in: query
+          schema: { type: string, enum: [VENTA, NOTA_CREDITO, COMPRA, AJUSTE, TRANSFERENCIA, MIGRACION] }
+        - $ref: '#/components/parameters/Desde'
+        - $ref: '#/components/parameters/Hasta'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Tamano'
+      responses:
+        '200':
+          description: Página de movimientos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaMovimientos' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+    post:
+      tags: [Inventario]
+      operationId: registrarMovimiento
+      summary: Registra un ingreso, salida o ajuste manual de inventario
+      description: Las salidas por venta NO se registran aquí; las genera el evento ComprobanteEmitido (VAL-INV-03).
+      x-modulo: inventario
+      x-puerto-entrada: RegistrarMovimientoUseCase
+      x-casos-uso: [CU-14, CU-15]
+      x-reglas: [VAL-INV-01, VAL-INV-02, VAL-INV-03]
+      x-roles: [ALMACENERO, ADMINISTRADOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/inventario.schema.json#/$defs/MovimientoInventarioRequest' }
+      responses:
+        '201':
+          description: Movimiento registrado
+          headers:
+            Location: { $ref: '#/components/headers/Location' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/inventario.schema.json#/$defs/MovimientoInventario' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+        '422': { $ref: '#/components/responses/ReglaDeNegocio' }
+
+  /inventario/kardex/{productoId}:
+    get:
+      tags: [Inventario]
+      operationId: obtenerKardex
+      summary: Kardex del producto en el formato 12.1 (RS 234-2006)
+      x-modulo: inventario
+      x-puerto-entrada: ConsultarKardexUseCase
+      x-casos-uso: [CU-16, CU-21]
+      parameters:
+        - $ref: '#/components/parameters/ProductoId'
+        - $ref: '#/components/parameters/Periodo'
+        - name: almacenId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Kardex del periodo
+          content:
+            application/json:
+              schema: { $ref: '../schemas/inventario.schema.json#/$defs/KardexFormato121' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /comprobantes/calculos:
+    post:
+      tags: [Comprobantes]
+      operationId: calcularComprobante
+      summary: Simula importes, tributos y leyendas sin numerar ni guardar
+      description: Las vistas muestran exactamente lo que calcula el motor tributario del servidor (ADR-07); evita diferencias de céntimos entre caja y comprobante.
+      x-modulo: facturacion
+      x-puerto-entrada: CalcularComprobanteUseCase
+      x-casos-uso: [CU-01, CU-02, CU-03]
+      x-reglas: [VAL-EST-01, VAL-ITM-01, VAL-ITM-02, VAL-ITM-04, VAL-TRB-01, VAL-TRB-02, VAL-TRB-03, VAL-TRB-05, VAL-TRB-06, VAL-TRB-07, VAL-TRB-08, VAL-TRB-09, VAL-TOT-01, VAL-TOT-02, VAL-TOT-03, VAL-TOT-04, VAL-TOT-06]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/comprobante-emision.request.schema.json' }
+      responses:
+        '200':
+          description: Resultado del cálculo
+          content:
+            application/json:
+              schema: { $ref: '../schemas/comprobante.response.schema.json#/$defs/ResultadoCalculo' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '422': { $ref: '#/components/responses/ReglaDeNegocio' }
+
+  /comprobantes:
+    get:
+      tags: [Comprobantes]
+      operationId: listarComprobantes
+      summary: Lista comprobantes con filtros de estado, fecha, serie y cliente
+      x-modulo: facturacion
+      x-puerto-entrada: ConsultarComprobantesUseCase
+      x-casos-uso: [CU-10]
+      parameters:
+        - name: tipoComprobante
+          in: query
+          schema: { $ref: '../schemas/catalogos-sunat.schema.json#/$defs/Cat01ComprobanteEmitible' }
+        - name: serie
+          in: query
+          schema: { $ref: '../schemas/comun.schema.json#/$defs/Serie' }
+        - name: estado
+          in: query
+          schema: { $ref: '../schemas/comprobante.response.schema.json#/$defs/EstadoComprobante' }
+        - name: clienteDocumento
+          in: query
+          schema: { type: string }
+        - $ref: '#/components/parameters/Desde'
+        - $ref: '#/components/parameters/Hasta'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Tamano'
+      responses:
+        '200':
+          description: Página de comprobantes
+          content:
+            application/json:
+              schema: { $ref: '../schemas/comprobante.response.schema.json#/$defs/PaginaComprobantes' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+    post:
+      tags: [Comprobantes]
+      operationId: emitirComprobante
+      summary: Emite una factura, boleta, nota de crédito o nota de débito electrónica
+      description: |
+        Flujo síncrono (< 1,5 s): valida, calcula, asigna el correlativo de forma atómica, genera el XML UBL 2.1,
+        lo firma y lo persiste con estado EMITIDO. Devuelve el hash y el QR para imprimir de inmediato.
+        El envío a OSE/SUNAT es asíncrono (outbox + reintentos, ADR-05); el estado final se consulta en el recurso.
+      x-modulo: facturacion
+      x-puerto-entrada: EmitirComprobanteUseCase
+      x-casos-uso: [CU-01, CU-02, CU-03, CU-04, CU-07]
+      x-reglas: [VAL-EST-01, VAL-EST-02, VAL-EST-03, VAL-ID-01, VAL-ID-02, VAL-ID-03, VAL-ID-04, VAL-ID-05, VAL-BOL-01, VAL-BOL-02, VAL-NUM-01, VAL-NUM-02, VAL-NUM-03, VAL-NUM-04, VAL-FEC-01, VAL-FEC-02, VAL-FEC-03, VAL-MON-01, VAL-MON-02, VAL-ITM-01, VAL-ITM-02, VAL-ITM-03, VAL-ITM-04, VAL-ITM-05, VAL-ITM-06, VAL-TRB-01, VAL-TRB-02, VAL-TRB-03, VAL-TRB-04, VAL-TRB-05, VAL-TRB-06, VAL-TRB-07, VAL-TRB-08, VAL-TRB-09, VAL-TOT-01, VAL-TOT-02, VAL-TOT-03, VAL-TOT-04, VAL-TOT-05, VAL-TOT-06, VAL-PAG-01, VAL-PAG-02, VAL-PAG-03, VAL-PAG-04, VAL-NOT-01, VAL-NOT-02, VAL-NOT-03, VAL-NOT-04, VAL-NOT-05, VAL-DET-01, VAL-ENV-02]
+      x-roles: [CAJERO, VENDEDOR, CONTADOR]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/comprobante-emision.request.schema.json' }
+            examples:
+              facturaCredito:
+                summary: Factura mayorista al crédito con bonificación (F001-1)
+                externalValue: ../ejemplos/json/01-emitir-factura-credito.request.json
+              boletaIcbper:
+                summary: Boleta con exonerado e ICBPER (B001-1)
+                externalValue: ../ejemplos/json/02-emitir-boleta-icbper.request.json
+              facturaIsc:
+                summary: Factura con ISC, Catálogo N.° 08 sistema 01 (F001-2)
+                externalValue: ../ejemplos/json/03-emitir-factura-isc.request.json
+              notaCredito:
+                summary: Nota de crédito por devolución de un ítem (FC01-1)
+                externalValue: ../ejemplos/json/04-emitir-nota-credito.request.json
+      responses:
+        '200':
+          description: Reintento idempotente; se devuelve el comprobante ya emitido con la misma Idempotency-Key
+          content:
+            application/json:
+              schema: { $ref: '../schemas/comprobante.response.schema.json' }
+        '201':
+          description: Comprobante emitido (numerado y firmado); envío a OSE/SUNAT en curso
+          headers:
+            Location: { $ref: '#/components/headers/Location' }
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/comprobante.response.schema.json' }
+              examples:
+                emitido:
+                  externalValue: ../ejemplos/json/05-comprobante-emitido.response.json
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+        '422': { $ref: '#/components/responses/ReglaDeNegocio' }
+        '503': { $ref: '#/components/responses/ServicioNoDisponible' }
+
+  /comprobantes/{comprobanteId}:
+    parameters:
+      - $ref: '#/components/parameters/ComprobanteId'
+    get:
+      tags: [Comprobantes]
+      operationId: obtenerComprobante
+      summary: Obtiene el comprobante con su estado y la respuesta de SUNAT/OSE
+      x-modulo: facturacion
+      x-puerto-entrada: ConsultarComprobantesUseCase
+      x-casos-uso: [CU-10]
+      responses:
+        '200':
+          description: Comprobante
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/comprobante.response.schema.json' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /comprobantes/{comprobanteId}/xml:
+    parameters:
+      - $ref: '#/components/parameters/ComprobanteId'
+    get:
+      tags: [Comprobantes]
+      operationId: descargarXml
+      summary: Descarga el XML UBL 2.1 firmado
+      x-modulo: cpe
+      x-puerto-entrada: DescargarDocumentoElectronicoUseCase
+      x-casos-uso: [CU-09]
+      responses:
+        '200':
+          description: XML firmado
+          content:
+            application/xml:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /comprobantes/{comprobanteId}/cdr:
+    parameters:
+      - $ref: '#/components/parameters/ComprobanteId'
+    get:
+      tags: [Comprobantes]
+      operationId: descargarCdr
+      summary: Descarga la constancia de recepción (CDR) de SUNAT/OSE
+      x-modulo: cpe
+      x-puerto-entrada: DescargarDocumentoElectronicoUseCase
+      x-casos-uso: [CU-08]
+      responses:
+        '200':
+          description: CDR (ZIP con el ApplicationResponse)
+          content:
+            application/zip:
+              schema:
+                type: string
+                contentMediaType: application/zip
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /comprobantes/{comprobanteId}/representacion-impresa:
+    parameters:
+      - $ref: '#/components/parameters/ComprobanteId'
+    get:
+      tags: [Comprobantes]
+      operationId: descargarRepresentacionImpresa
+      summary: Representación impresa (PDF A4 o ticket térmico) con QR y valor resumen
+      x-modulo: cpe
+      x-puerto-entrada: GenerarRepresentacionImpresaUseCase
+      x-casos-uso: [CU-09]
+      parameters:
+        - name: formato
+          in: query
+          schema:
+            type: string
+            enum: [A4, TICKET_80MM, TICKET_58MM]
+            default: A4
+      responses:
+        '200':
+          description: PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                contentMediaType: application/pdf
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /comprobantes/{comprobanteId}/reenvios:
+    parameters:
+      - $ref: '#/components/parameters/ComprobanteId'
+    post:
+      tags: [Comprobantes]
+      operationId: reenviarComprobante
+      summary: Fuerza el reenvío a OSE/SUNAT de un comprobante EMITIDO o en EXCEPCION
+      x-modulo: cpe
+      x-puerto-entrada: EnviarComprobanteUseCase
+      x-casos-uso: [CU-07]
+      x-reglas: [VAL-ENV-03, VAL-NUM-05]
+      responses:
+        '202':
+          description: Reenvío encolado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProcesoAceptado' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+
+  /comprobantes/{comprobanteId}/consultas-sunat:
+    parameters:
+      - $ref: '#/components/parameters/ComprobanteId'
+    post:
+      tags: [Comprobantes]
+      operationId: consultarEstadoSunat
+      summary: Consulta el estado y recupera el CDR en SUNAT/OSE (getStatusCdr)
+      x-modulo: cpe
+      x-puerto-entrada: ConsultarEstadoCpeUseCase
+      x-casos-uso: [CU-08]
+      responses:
+        '200':
+          description: Respuesta vigente de SUNAT/OSE
+          content:
+            application/json:
+              schema: { $ref: '../schemas/comprobante.response.schema.json#/$defs/RespuestaSunat' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '503': { $ref: '#/components/responses/ServicioNoDisponible' }
+
+  /comprobantes/{comprobanteId}/notificaciones:
+    parameters:
+      - $ref: '#/components/parameters/ComprobanteId'
+    post:
+      tags: [Comprobantes]
+      operationId: notificarCliente
+      summary: Envía PDF y XML al cliente por correo o un enlace por WhatsApp
+      x-modulo: notificaciones
+      x-puerto-entrada: NotificarComprobanteUseCase
+      x-casos-uso: [CU-09]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificacionRequest' }
+      responses:
+        '202':
+          description: Notificación encolada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProcesoAceptado' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '422': { $ref: '#/components/responses/ReglaDeNegocio' }
+
+  /comunicaciones-baja:
+    post:
+      tags: [Bajas y resúmenes]
+      operationId: comunicarBaja
+      summary: Anula facturas y sus notas mediante comunicación de baja (RA)
+      x-modulo: cpe
+      x-puerto-entrada: AnularComprobanteUseCase
+      x-casos-uso: [CU-05]
+      x-reglas: [VAL-BAJ-01, VAL-BAJ-03, VAL-BAJ-04, VAL-ENV-01, VAL-ENV-04]
+      x-roles: [CONTADOR, ADMINISTRADOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/baja-resumen.schema.json#/$defs/ComunicacionBajaRequest' }
+      responses:
+        '202':
+          description: Comunicación de baja generada y enviada; se obtiene un ticket
+          headers:
+            Location: { $ref: '#/components/headers/Location' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/baja-resumen.schema.json#/$defs/ComunicacionBaja' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '422': { $ref: '#/components/responses/ReglaDeNegocio' }
+
+  /comunicaciones-baja/{bajaId}:
+    get:
+      tags: [Bajas y resúmenes]
+      operationId: obtenerComunicacionBaja
+      summary: Estado de una comunicación de baja (getStatus del ticket)
+      x-modulo: cpe
+      x-puerto-entrada: AnularComprobanteUseCase
+      x-casos-uso: [CU-05]
+      parameters:
+        - name: bajaId
+          in: path
+          required: true
+          schema: { $ref: '../schemas/comun.schema.json#/$defs/Uuid' }
+      responses:
+        '200':
+          description: Comunicación de baja
+          content:
+            application/json:
+              schema: { $ref: '../schemas/baja-resumen.schema.json#/$defs/ComunicacionBaja' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /resumenes-diarios:
+    post:
+      tags: [Bajas y resúmenes]
+      operationId: generarResumenDiario
+      summary: Genera y envía el resumen diario de boletas y notas vinculadas (RC)
+      description: Normalmente lo dispara el planificador cada noche; este endpoint permite regenerarlo manualmente.
+      x-modulo: cpe
+      x-puerto-entrada: GenerarResumenDiarioUseCase
+      x-casos-uso: [CU-06]
+      x-reglas: [VAL-BOL-03, VAL-BAJ-02, VAL-ENV-01, VAL-ENV-04]
+      x-roles: [CONTADOR, ADMINISTRADOR]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '../schemas/baja-resumen.schema.json#/$defs/GenerarResumenRequest' }
+      responses:
+        '202':
+          description: Resumen enviado; se obtiene un ticket
+          headers:
+            Location: { $ref: '#/components/headers/Location' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/baja-resumen.schema.json#/$defs/ResumenDiario' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '422': { $ref: '#/components/responses/ReglaDeNegocio' }
+
+  /resumenes-diarios/{resumenId}:
+    get:
+      tags: [Bajas y resúmenes]
+      operationId: obtenerResumenDiario
+      summary: Estado de un resumen diario (getStatus del ticket)
+      x-modulo: cpe
+      x-puerto-entrada: GenerarResumenDiarioUseCase
+      x-casos-uso: [CU-06]
+      parameters:
+        - name: resumenId
+          in: path
+          required: true
+          schema: { $ref: '../schemas/comun.schema.json#/$defs/Uuid' }
+      responses:
+        '200':
+          description: Resumen diario
+          content:
+            application/json:
+              schema: { $ref: '../schemas/baja-resumen.schema.json#/$defs/ResumenDiario' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /registros/ventas:
+    get:
+      tags: [Registros]
+      operationId: obtenerRegistroVentas
+      summary: Registro de Ventas e Ingresos del periodo (Formato 14.1 / propuesta RVIE del SIRE)
+      x-modulo: registros
+      x-puerto-entrada: GenerarRegistroVentasUseCase
+      x-casos-uso: [CU-20]
+      parameters:
+        - $ref: '#/components/parameters/Periodo'
+        - name: formato
+          in: query
+          schema: { type: string, enum: [JSON, TXT], default: JSON }
+      responses:
+        '200':
+          description: Registro del periodo
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/LineaRegistroVentas' }
+            text/plain:
+              schema: { type: string }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+
+  /registros/inventario-unidades-fisicas:
+    get:
+      tags: [Registros]
+      operationId: obtenerRegistroInventario
+      summary: Registro del Inventario Permanente en Unidades Físicas (Formato 12.1)
+      x-modulo: registros
+      x-puerto-entrada: GenerarRegistroInventarioUseCase
+      x-casos-uso: [CU-21]
+      parameters:
+        - $ref: '#/components/parameters/Periodo'
+        - name: productoId
+          in: query
+          schema: { $ref: '../schemas/comun.schema.json#/$defs/Uuid' }
+      responses:
+        '200':
+          description: Registro del periodo (un bloque por existencia)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '../schemas/inventario.schema.json#/$defs/KardexFormato121' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+
+  /migraciones/lotes:
+    post:
+      tags: [Migración]
+      operationId: crearLoteMigracion
+      summary: Carga un archivo del sistema legado en staging (no modifica datos productivos)
+      x-modulo: migracion
+      x-puerto-entrada: CargarLoteLegadoUseCase
+      x-casos-uso: [CU-17]
+      x-reglas: [MIG-01, MIG-02, MIG-03, MIG-04, MIG-05, MIG-06, MIG-07, MIG-08]
+      x-roles: [ADMINISTRADOR]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [archivo, metadatos]
+              properties:
+                archivo:
+                  type: string
+                  contentMediaType: application/octet-stream
+                metadatos: { $ref: '../schemas/migracion.schema.json#/$defs/CrearLoteRequest' }
+      responses:
+        '202':
+          description: Lote creado; el perfilado y la transformación corren en segundo plano
+          headers:
+            Location: { $ref: '#/components/headers/Location' }
+          content:
+            application/json:
+              schema: { $ref: '../schemas/migracion.schema.json#/$defs/LoteMigracion' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+
+  /migraciones/lotes/{loteId}:
+    get:
+      tags: [Migración]
+      operationId: obtenerLote
+      summary: Estado y contadores del lote
+      x-modulo: migracion
+      x-puerto-entrada: ConsultarLoteUseCase
+      x-casos-uso: [CU-17, CU-18]
+      parameters:
+        - $ref: '#/components/parameters/LoteId'
+      responses:
+        '200':
+          description: Lote
+          content:
+            application/json:
+              schema: { $ref: '../schemas/migracion.schema.json#/$defs/LoteMigracion' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /migraciones/lotes/{loteId}/registros:
+    get:
+      tags: [Migración]
+      operationId: listarRegistrosLote
+      summary: Registros del lote, p. ej. los OBSERVADOS pendientes de revisión
+      x-modulo: migracion
+      x-puerto-entrada: ConsultarLoteUseCase
+      x-casos-uso: [CU-18]
+      parameters:
+        - $ref: '#/components/parameters/LoteId'
+        - name: estado
+          in: query
+          schema: { type: string, enum: [PENDIENTE, MIGRADO, MIGRADO_CON_SUPUESTOS, OBSERVADO, RECHAZADO] }
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Tamano'
+      responses:
+        '200':
+          description: Página de registros
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaRegistrosMigracion' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /migraciones/registros/{registroId}:
+    patch:
+      tags: [Migración]
+      operationId: resolverRegistro
+      summary: Resuelve manualmente un registro observado (queda en el linaje)
+      x-modulo: migracion
+      x-puerto-entrada: ResolverRegistroObservadoUseCase
+      x-casos-uso: [CU-18]
+      x-roles: [ADMINISTRADOR, CONTADOR]
+      parameters:
+        - name: registroId
+          in: path
+          required: true
+          schema: { $ref: '../schemas/comun.schema.json#/$defs/Uuid' }
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema: { $ref: '../schemas/migracion.schema.json#/$defs/ResolucionRegistro' }
+      responses:
+        '200':
+          description: Registro resuelto
+          content:
+            application/json:
+              schema: { $ref: '../schemas/migracion.schema.json#/$defs/RegistroMigracion' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409': { $ref: '#/components/responses/Conflicto' }
+
+  /migraciones/lotes/{loteId}/conciliacion:
+    get:
+      tags: [Migración]
+      operationId: obtenerConciliacion
+      summary: Controles de cuadre entre el legado y el sistema nuevo
+      x-modulo: migracion
+      x-puerto-entrada: ConciliarLoteUseCase
+      x-casos-uso: [CU-19]
+      parameters:
+        - $ref: '#/components/parameters/LoteId'
+      responses:
+        '200':
+          description: Conciliación
+          content:
+            application/json:
+              schema: { $ref: '../schemas/migracion.schema.json#/$defs/Conciliacion' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /migraciones/lotes/{loteId}/confirmacion:
+    post:
+      tags: [Migración]
+      operationId: confirmarLote
+      summary: Confirma el lote, crea movimientos y saldos y sella el linaje
+      x-modulo: migracion
+      x-puerto-entrada: ConfirmarLoteUseCase
+      x-casos-uso: [CU-19]
+      x-reglas: [MIG-09, MIG-10, MIG-11, MIG-12]
+      x-roles: [GERENTE, CONTADOR]
+      parameters:
+        - $ref: '#/components/parameters/LoteId'
+      responses:
+        '202':
+          description: Confirmación en curso
+          content:
+            application/json:
+              schema: { $ref: '../schemas/migracion.schema.json#/$defs/LoteMigracion' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '409':
+          description: La conciliación no es conforme o hay registros observados sin resolver
+          content:
+            application/problem+json:
+              schema: { $ref: '../schemas/problema.schema.json' }
+
+  /migraciones/linaje:
+    get:
+      tags: [Migración]
+      operationId: consultarLinaje
+      summary: Traza un registro legado hasta su entidad nueva, o una entidad hasta su origen
+      x-modulo: migracion
+      x-puerto-entrada: ConsultarLinajeUseCase
+      x-casos-uso: [CU-19]
+      parameters:
+        - name: idLegado
+          in: query
+          schema: { type: string }
+        - name: entidad
+          in: query
+          schema: { type: string, enum: [MovimientoInventario, Producto, DocumentoHistorico] }
+        - name: entidadId
+          in: query
+          schema: { $ref: '../schemas/comun.schema.json#/$defs/Uuid' }
+      responses:
+        '200':
+          description: Vínculos de linaje
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '../schemas/migracion.schema.json#/$defs/Linaje' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+
+  /auditoria/eventos:
+    get:
+      tags: [Sistema]
+      operationId: consultarAuditoria
+      summary: Bitácora de auditoría (quién hizo qué y cuándo)
+      x-modulo: seguridad
+      x-puerto-entrada: ConsultarAuditoriaUseCase
+      x-casos-uso: [CU-28]
+      x-roles: [ADMINISTRADOR, CONTADOR, GERENTE]
+      parameters:
+        - name: entidad
+          in: query
+          schema: { type: string }
+        - name: entidadId
+          in: query
+          schema: { type: string }
+        - name: usuario
+          in: query
+          schema: { type: string }
+        - $ref: '#/components/parameters/Desde'
+        - $ref: '#/components/parameters/Hasta'
+        - $ref: '#/components/parameters/Pagina'
+        - $ref: '#/components/parameters/Tamano'
+      responses:
+        '200':
+          description: Página de eventos de auditoría
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaAuditoria' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+
+  /sistema/salud:
+    get:
+      tags: [Sistema]
+      operationId: obtenerSalud
+      summary: Estado del servidor, la base de datos, el canal de envío, el certificado y la cola de envíos
+      security: []
+      x-modulo: plataforma
+      responses:
+        '200':
+          description: Estado de salud
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Salud' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '429': { $ref: '#/components/responses/DemasiadasSolicitudes' }
+
+  /sistema/version-cliente:
+    get:
+      tags: [Sistema]
+      operationId: obtenerVersionCliente
+      summary: Versión mínima y vigente del instalador MSI o del APK
+      security: []
+      x-modulo: plataforma
+      x-casos-uso: [CU-29]
+      parameters:
+        - name: plataforma
+          in: query
+          required: true
+          schema: { type: string, enum: [WINDOWS, ANDROID] }
+      responses:
+        '200':
+          description: Información de versión
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VersionCliente' }
+        '400': { $ref: '#/components/responses/SolicitudInvalida' }
+        '401': { $ref: '#/components/responses/401' }
+        '403': { $ref: '#/components/responses/403' }
+        '429': { $ref: '#/components/responses/DemasiadasSolicitudes' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT firmado por el servidor; incluye usuario, roles y puntoEmisionId del dispositivo.
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID generado por el cliente por cada intento lógico de venta. Reintentos con la misma clave devuelven el mismo comprobante.
+      schema: { $ref: '../schemas/comun.schema.json#/$defs/Uuid' }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema: { type: string }
+    Pagina:
+      name: pagina
+      in: query
+      schema: { type: integer, minimum: 0, default: 0 }
+    Tamano:
+      name: tamano
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+    Desde:
+      name: desde
+      in: query
+      schema: { $ref: '../schemas/comun.schema.json#/$defs/Fecha' }
+    Hasta:
+      name: hasta
+      in: query
+      schema: { $ref: '../schemas/comun.schema.json#/$defs/Fecha' }
+    Periodo:
+      name: periodo
+      in: query
+      required: true
+      schema: { $ref: '../schemas/comun.schema.json#/$defs/Periodo' }
+    ComprobanteId:
+      name: comprobanteId
+      in: path
+      required: true
+      schema: { $ref: '../schemas/comun.schema.json#/$defs/Uuid' }
+    ProductoId:
+      name: productoId
+      in: path
+      required: true
+      schema: { $ref: '../schemas/comun.schema.json#/$defs/Uuid' }
+    LoteId:
+      name: loteId
+      in: path
+      required: true
+      schema: { $ref: '../schemas/comun.schema.json#/$defs/Uuid' }
+
+  headers:
+    Location:
+      description: URL del recurso creado
+      schema: { type: string, format: uri-reference }
+    ETag:
+      description: Versión del recurso para concurrencia optimista
+      schema: { type: string }
+
+  responses:
+    '401':
+      description: Falta el token o expiró
+      content:
+        application/problem+json:
+          schema: { $ref: '../schemas/problema.schema.json' }
+    '403':
+      description: El rol del usuario no permite la operación
+      content:
+        application/problem+json:
+          schema: { $ref: '../schemas/problema.schema.json' }
+    SolicitudInvalida:
+      description: El cuerpo no cumple el contrato (VAL-EST-01)
+      content:
+        application/problem+json:
+          schema: { $ref: '../schemas/problema.schema.json' }
+    NoAutenticado:
+      description: Falta el token o expiró
+      content:
+        application/problem+json:
+          schema: { $ref: '../schemas/problema.schema.json' }
+    Prohibido:
+      description: El rol del usuario no permite la operación
+      content:
+        application/problem+json:
+          schema: { $ref: '../schemas/problema.schema.json' }
+    NoEncontrado:
+      description: Recurso inexistente
+      content:
+        application/problem+json:
+          schema: { $ref: '../schemas/problema.schema.json' }
+    Conflicto:
+      description: Conflicto con el estado actual (duplicado, serie inactiva, clave de idempotencia reutilizada con otro cuerpo)
+      content:
+        application/problem+json:
+          schema: { $ref: '../schemas/problema.schema.json' }
+    PrecondicionFallida:
+      description: El ETag no coincide; otro usuario modificó el recurso
+      content:
+        application/problem+json:
+          schema: { $ref: '../schemas/problema.schema.json' }
+    ReglaDeNegocio:
+      description: El contrato es correcto pero viola reglas de negocio o normativas (VAL-*)
+      content:
+        application/problem+json:
+          schema: { $ref: '../schemas/problema.schema.json' }
+          example:
+            type: /problemas/validacion-negocio
+            title: El comprobante no cumple las reglas de emisión
+            status: 422
+            detail: La boleta supera S/ 700 y el adquirente no está identificado.
+            errores:
+              - regla: VAL-BOL-01
+                campo: /cliente/numeroDocumento
+                mensaje: Para boletas mayores a S/ 700 se requiere el tipo y número de documento del adquirente.
+                severidad: ERROR
+                fuenteNormativa: RS 097-2012/SUNAT, Anexo N.° 2 (modif. RS 114-2019/SUNAT), campo 11
+    DemasiadasSolicitudes:
+      description: Límite de solicitudes excedido; reintentar luego de Retry-After
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/problem+json:
+          schema: { $ref: '../schemas/problema.schema.json' }
+    ServicioNoDisponible:
+      description: Dependencia externa no disponible (padrón RUC, OSE/SUNAT); reintentar más tarde
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/problem+json:
+          schema: { $ref: '../schemas/problema.schema.json' }
+
+  schemas:
+    TokenRequest:
+      type: object
+      additionalProperties: false
+      required: [usuario, clave, dispositivoId, plataforma, versionCliente]
+      properties:
+        usuario: { type: string, minLength: 3, maxLength: 50 }
+        clave: { type: string, format: password, writeOnly: true }
+        dispositivoId: { type: string, description: 'Identificador del equipo registrado (caja, PC o móvil).' }
+        plataforma: { type: string, enum: [WINDOWS, ANDROID] }
+        versionCliente: { type: string, pattern: '^\d+\.\d+\.\d+$' }
+    TokenResponse:
+      type: object
+      required: [accessToken, refreshToken, expiraEn, usuario, roles]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiraEn: { type: integer, description: Segundos de vida del accessToken }
+        usuario: { type: string }
+        roles:
+          type: array
+          items: { type: string, enum: [ADMINISTRADOR, CAJERO, VENDEDOR, ALMACENERO, CONTADOR, GERENTE] }
+        puntoEmisionId: { type: string }
+        almacenId: { type: string }
+    Empresa:
+      type: object
+      required: [ruc, razonSocial, establecimientos]
+      properties:
+        ruc: { $ref: '../schemas/comun.schema.json#/$defs/Ruc' }
+        razonSocial: { type: string }
+        nombreComercial: { type: string }
+        establecimientos:
+          type: array
+          items:
+            type: object
+            required: [codigo, direccion, ubigeo]
+            properties:
+              codigo: { $ref: '../schemas/comun.schema.json#/$defs/CodigoEstablecimiento' }
+              direccion: { type: string }
+              ubigeo: { $ref: '../schemas/comun.schema.json#/$defs/Ubigeo' }
+              beneficios:
+                type: array
+                description: Beneficios tributarios del establecimiento, p. ej. AMAZONIA (Ley 27037), que activan la leyenda 2001.
+                items: { type: string, enum: [AMAZONIA] }
+    SerieRequest:
+      type: object
+      additionalProperties: false
+      required: [codigo, tipoComprobante, puntoEmisionId]
+      properties:
+        codigo: { $ref: '../schemas/comun.schema.json#/$defs/Serie' }
+        tipoComprobante: { $ref: '../schemas/catalogos-sunat.schema.json#/$defs/Cat01ComprobanteEmitible' }
+        puntoEmisionId: { type: string }
+        codigoEstablecimiento: { $ref: '../schemas/comun.schema.json#/$defs/CodigoEstablecimiento' }
+    Serie:
+      allOf:
+        - $ref: '#/components/schemas/SerieRequest'
+        - type: object
+          required: [ultimoCorrelativo, activa]
+          properties:
+            ultimoCorrelativo: { type: integer, minimum: 0, maximum: 99999999 }
+            activa: { type: boolean }
+    CertificadoInfo:
+      type: object
+      required: [huellaSha256, sujeto, emisor, vigenteDesde, vigenteHasta]
+      properties:
+        huellaSha256: { type: string }
+        sujeto: { type: string }
+        emisor: { type: string }
+        numeroSerie: { type: string }
+        vigenteDesde: { $ref: '../schemas/comun.schema.json#/$defs/FechaHora' }
+        vigenteHasta: { $ref: '../schemas/comun.schema.json#/$defs/FechaHora' }
+        diasParaVencer: { type: integer }
+    CanalEnvioRequest:
+      type: object
+      additionalProperties: false
+      required: [tipo, ambiente, urlServicio, usuario, clave]
+      properties:
+        tipo: { type: string, enum: [OSE, SUNAT] }
+        ambiente: { type: string, enum: [BETA, PRODUCCION] }
+        urlServicio:
+          type: string
+          format: uri
+          examples: ['https://e-beta.sunat.gob.pe/ol-ti-itcpfegem-beta/billService']
+        usuario: { type: string, description: RUC + usuario SOL secundario (o usuario del OSE). }
+        clave: { type: string, format: password, writeOnly: true }
+    CanalEnvio:
+      type: object
+      required: [tipo, ambiente, urlServicio, conexionVerificada]
+      properties:
+        tipo: { type: string, enum: [OSE, SUNAT] }
+        ambiente: { type: string, enum: [BETA, PRODUCCION] }
+        urlServicio: { type: string, format: uri }
+        conexionVerificada: { type: boolean }
+        verificadoEn: { $ref: '../schemas/comun.schema.json#/$defs/FechaHora' }
+    Catalogo:
+      type: object
+      required: [numero, nombre, version, items]
+      properties:
+        numero: { type: string }
+        nombre: { type: string }
+        version: { type: string }
+        fuente: { type: string, examples: ['RS 097-2012/SUNAT, Anexo N.° 8'] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [codigo, descripcion, vigenteDesde]
+            properties:
+              codigo: { type: string }
+              descripcion: { type: string }
+              atributos:
+                type: object
+                additionalProperties: { type: string }
+              vigenteDesde: { $ref: '../schemas/comun.schema.json#/$defs/Fecha' }
+              vigenteHasta: { $ref: '../schemas/comun.schema.json#/$defs/Fecha' }
+    ParametroTributario:
+      type: object
+      required: [clave, valor, vigenteDesde, baseLegal]
+      properties:
+        clave:
+          type: string
+          enum: [TASA_IGV, TARIFA_ICBPER, UMBRAL_IDENTIFICACION_BOLETA, PLAZO_ENVIO_DIAS, PLAZO_BAJA_DIAS, UMBRAL_DETRACCION, FACTOR_ISC_PVP]
+        valor: { type: string }
+        vigenteDesde: { $ref: '../schemas/comun.schema.json#/$defs/Fecha' }
+        vigenteHasta: { $ref: '../schemas/comun.schema.json#/$defs/Fecha' }
+        baseLegal: { type: string }
+    PaginaTerceros:
+      type: object
+      required: [elementos, pagina]
+      properties:
+        elementos:
+          type: array
+          items: { $ref: '../schemas/tercero.schema.json#/$defs/Tercero' }
+        pagina: { $ref: '../schemas/comun.schema.json#/$defs/PaginaMeta' }
+    PaginaMovimientos:
+      type: object
+      required: [elementos, pagina]
+      properties:
+        elementos:
+          type: array
+          items: { $ref: '../schemas/inventario.schema.json#/$defs/MovimientoInventario' }
+        pagina: { $ref: '../schemas/comun.schema.json#/$defs/PaginaMeta' }
+    PaginaRegistrosMigracion:
+      type: object
+      required: [elementos, pagina]
+      properties:
+        elementos:
+          type: array
+          items: { $ref: '../schemas/migracion.schema.json#/$defs/RegistroMigracion' }
+        pagina: { $ref: '../schemas/comun.schema.json#/$defs/PaginaMeta' }
+    ProcesoAceptado:
+      type: object
+      required: [procesoId, estado]
+      properties:
+        procesoId: { $ref: '../schemas/comun.schema.json#/$defs/Uuid' }
+        estado: { type: string, enum: [ENCOLADO, EN_PROCESO, TERMINADO, FALLIDO] }
+        enlaces: { $ref: '../schemas/comun.schema.json#/$defs/Enlaces' }
+    NotificacionRequest:
+      type: object
+      additionalProperties: false
+      required: [canal]
+      properties:
+        canal: { type: string, enum: [CORREO, WHATSAPP] }
+        destino: { type: string, description: 'Correo o número; si se omite, se usa el del cliente.' }
+    LineaRegistroVentas:
+      type: object
+      description: Una fila del Formato 14.1 (RS 234-2006/SUNAT); en el SIRE corresponde a la propuesta del RVIE.
+      required: [cuo, fechaEmision, tipoComprobante, serie, numero, importeTotal, moneda]
+      properties:
+        cuo: { type: string, description: Código único de la operación }
+        fechaEmision: { $ref: '../schemas/comun.schema.json#/$defs/Fecha' }
+        fechaVencimiento: { $ref: '../schemas/comun.schema.json#/$defs/Fecha' }
+        tipoComprobante: { $ref: '../schemas/catalogos-sunat.schema.json#/$defs/Tabla10TipoDocumento' }
+        serie: { type: string }
+        numero: { type: string }
+        tipoDocumentoCliente: { $ref: '../schemas/catalogos-sunat.schema.json#/$defs/Tabla2TipoDocumentoIdentidad' }
+        numeroDocumentoCliente: { type: string }
+        razonSocialCliente: { type: string }
+        valorExportacion: { $ref: '../schemas/comun.schema.json#/$defs/Importe' }
+        baseImponibleGravada: { $ref: '../schemas/comun.schema.json#/$defs/Importe' }
+        importeExonerado: { $ref: '../schemas/comun.schema.json#/$defs/Importe' }
+        importeInafecto: { $ref: '../schemas/comun.schema.json#/$defs/Importe' }
+        isc: { $ref: '../schemas/comun.schema.json#/$defs/Importe' }
+        igv: { $ref: '../schemas/comun.schema.json#/$defs/Importe' }
+        icbper: { $ref: '../schemas/comun.schema.json#/$defs/Importe' }
+        otrosTributos: { $ref: '../schemas/comun.schema.json#/$defs/Importe' }
+        importeTotal: { $ref: '../schemas/comun.schema.json#/$defs/Importe' }
+        moneda: { $ref: '../schemas/catalogos-sunat.schema.json#/$defs/Cat02Moneda' }
+        tipoCambio: { $ref: '../schemas/comun.schema.json#/$defs/TipoCambio' }
+        referencia:
+          type: object
+          description: Comprobante que se modifica (solo notas)
+          properties:
+            fecha: { $ref: '../schemas/comun.schema.json#/$defs/Fecha' }
+            tipo: { $ref: '../schemas/catalogos-sunat.schema.json#/$defs/Tabla10TipoDocumento' }
+            serie: { type: string }
+            numero: { type: string }
+    EventoAuditoria:
+      type: object
+      required: [id, fechaHora, usuario, accion, entidad, entidadId]
+      properties:
+        id: { $ref: '../schemas/comun.schema.json#/$defs/Uuid' }
+        fechaHora: { $ref: '../schemas/comun.schema.json#/$defs/FechaHora' }
+        usuario: { type: string }
+        dispositivoId: { type: string }
+        accion: { type: string, examples: [EMITIR, ANULAR, MODIFICAR_PRODUCTO, CONFIRMAR_LOTE] }
+        entidad: { type: string }
+        entidadId: { type: string }
+        antes: { type: object }
+        despues: { type: object }
+        correlationId: { type: string }
+    PaginaAuditoria:
+      type: object
+      required: [elementos, pagina]
+      properties:
+        elementos:
+          type: array
+          items: { $ref: '#/components/schemas/EventoAuditoria' }
+        pagina: { $ref: '../schemas/comun.schema.json#/$defs/PaginaMeta' }
+    Salud:
+      type: object
+      required: [estado]
+      properties:
+        estado: { type: string, enum: [OPERATIVO, DEGRADADO, CAIDO] }
+        baseDatos: { type: string, enum: [OK, ERROR] }
+        canalEnvio: { type: string, enum: [OK, LENTO, CAIDO] }
+        certificadoDiasParaVencer: { type: integer }
+        colaEnvio:
+          type: object
+          properties:
+            pendientes: { type: integer, minimum: 0 }
+            antiguedadMaximaMinutos: { type: integer, minimum: 0 }
+    VersionCliente:
+      type: object
+      required: [plataforma, versionMinima, versionVigente, urlDescarga, sha256]
+      properties:
+        plataforma: { type: string, enum: [WINDOWS, ANDROID] }
+        versionMinima: { type: string }
+        versionVigente: { type: string }
+        urlDescarga: { type: string, format: uri-reference }
+        sha256: { type: string, pattern: '^[a-f0-9]{64}$' }

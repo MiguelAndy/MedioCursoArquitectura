@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Catálogo de productos",
+  "description": "Maestro de productos (módulo catalogo). Cada producto declara su tratamiento tributario por defecto: afectación del IGV (Cat. 07), sistema de ISC (Cat. 08) y si genera ICBPER. Así el cajero no decide impuestos ítem por ítem (G-02).",
+  "$defs": {
+    "ProductoRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codigo", "descripcion", "unidadMedidaBase", "tipoExistencia", "tipoAfectacionIgv"],
+      "properties": {
+        "codigo": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "descripcion": { "$ref": "comun.schema.json#/$defs/Texto500" },
+        "codigoProductoSunat": { "type": "string", "pattern": "^\\d{8}$", "description": "UNSPSC (Catálogo N.° 25)." },
+        "codigoGtin": { "type": "string", "pattern": "^(\\d{8}|\\d{12,14})$" },
+        "unidadMedidaBase": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat03UnidadMedida" },
+        "tipoExistencia": { "$ref": "catalogos-sunat.schema.json#/$defs/Tabla5TipoExistencia" },
+        "tipoAfectacionIgv": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat07TipoAfectacionIgv" },
+        "afectoIcbper": { "type": "boolean", "default": false, "description": "true solo para bolsas de plástico entregadas al cliente." },
+        "isc": { "$ref": "#/$defs/ConfiguracionIsc" },
+        "controlaStock": { "type": "boolean", "default": true },
+        "presentaciones": {
+          "type": "array",
+          "maxItems": 10,
+          "items": { "$ref": "#/$defs/Presentacion" }
+        },
+        "precios": {
+          "type": "array",
+          "maxItems": 10,
+          "items": { "$ref": "#/$defs/Precio" }
+        },
+        "activo": { "type": "boolean", "default": true }
+      }
+    },
+    "Producto": {
+      "allOf": [
+        { "$ref": "#/$defs/ProductoRequest" },
+        {
+          "type": "object",
+          "required": ["id", "version"],
+          "properties": {
+            "id": { "$ref": "comun.schema.json#/$defs/Uuid" },
+            "version": { "type": "integer", "minimum": 0, "description": "Control de concurrencia optimista (ETag)." },
+            "origen": { "type": "string", "enum": ["MANUAL", "IMPORTACION_EXCEL", "MIGRACION"] },
+            "auditoria": { "$ref": "comun.schema.json#/$defs/Auditoria" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ConfiguracionIsc": {
+      "type": "object",
+      "description": "Parametrización del ISC del producto con vigencia (ADR-08). Las tasas y montos cambian por decreto supremo; nunca se escriben en el código.",
+      "additionalProperties": false,
+      "required": ["sistema", "vigenteDesde", "baseLegal"],
+      "properties": {
+        "sistema": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat08SistemaIsc" },
+        "tasa": { "$ref": "comun.schema.json#/$defs/Porcentaje" },
+        "montoFijo": { "$ref": "comun.schema.json#/$defs/ValorUnitario" },
+        "unidadBaseMontoFijo": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat03UnidadMedida" },
+        "factorConversionUnidadBase": { "$ref": "comun.schema.json#/$defs/Cantidad", "description": "Unidades de la base del Apéndice por unidad comercial (p. ej., 9 litros por caja)." },
+        "precioVentaPublicoSugerido": { "$ref": "comun.schema.json#/$defs/ValorUnitario" },
+        "vigenteDesde": { "$ref": "comun.schema.json#/$defs/Fecha" },
+        "vigenteHasta": { "$ref": "comun.schema.json#/$defs/Fecha" },
+        "baseLegal": { "type": "string", "maxLength": 200, "examples": ["D.S. N.° xxx-2026-EF, Apéndice IV, literal A"] }
+      },
+      "allOf": [
+        { "if": { "properties": { "sistema": { "const": "01" } } }, "then": { "required": ["tasa"] } },
+        { "if": { "properties": { "sistema": { "const": "02" } } }, "then": { "required": ["montoFijo", "unidadBaseMontoFijo"] } },
+        { "if": { "properties": { "sistema": { "const": "03" } } }, "then": { "required": ["tasa", "precioVentaPublicoSugerido"] } }
+      ]
+    },
+    "Presentacion": {
+      "type": "object",
+      "description": "Unidad comercial alternativa (caja x 12, paquete x 6). El inventario se lleva en la unidad base.",
+      "additionalProperties": false,
+      "required": ["unidadMedida", "factorConversion"],
+      "properties": {
+        "unidadMedida": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat03UnidadMedida" },
+        "factorConversion": { "$ref": "comun.schema.json#/$defs/Cantidad" },
+        "codigoGtin": { "type": "string", "pattern": "^(\\d{8}|\\d{12,14})$" },
+        "descripcion": { "type": "string", "maxLength": 100 }
+      }
+    },
+    "Precio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lista", "moneda", "precioUnitario", "vigenteDesde"],
+      "properties": {
+        "lista": { "type": "string", "enum": ["MAYORISTA", "MINORISTA"] },
+        "unidadMedida": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat03UnidadMedida" },
+        "moneda": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat02Moneda" },
+        "precioUnitario": { "$ref": "comun.schema.json#/$defs/ValorUnitario", "description": "Precio con impuestos." },
+        "cantidadMinima": { "$ref": "comun.schema.json#/$defs/Cantidad" },
+        "vigenteDesde": { "$ref": "comun.schema.json#/$defs/Fecha" }
+      }
+    },
+    "PaginaProductos": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["elementos", "pagina"],
+      "properties": {
+        "elementos": { "type": "array", "items": { "$ref": "#/$defs/Producto" } },
+        "pagina": { "$ref": "comun.schema.json#/$defs/PaginaMeta" }
+      }
+    }
+  }
+}

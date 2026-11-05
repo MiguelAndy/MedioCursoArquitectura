@@ -1,0 +1,55 @@
+flowchart LR
+  ADM["«actor»<br/>Administrador"]
+  ALM["«actor»<br/>Almacenero"]
+  CON["«actor»<br/>Contador"]
+  GER["«actor»<br/>Gerente"]
+  LEG["«actor externo»<br/>Sistema legado"]
+  RUC["«actor externo»<br/>Padrón RUC"]
+  subgraph MAE["Maestros"]
+    direction TB
+    CU11(["CU-11 Registrar cliente con validación RUC/DNI"])
+    CU12(["CU-12 Gestionar productos y tributos"])
+    CU13(["CU-13 Importar productos"])
+  end
+  subgraph INVE["Inventario"]
+    direction TB
+    CU14(["CU-14 Registrar ingreso"])
+    CU15(["CU-15 Registrar salida o ajuste"])
+    CU16(["CU-16 Consultar existencias y kardex"])
+    CU23(["CU-23 Toma de inventario con lector"])
+  end
+  subgraph MIGR["Migración del legado"]
+    direction TB
+    CU17(["CU-17 Cargar lote del legado"])
+    CU18(["CU-18 Resolver registros observados"])
+    CU19(["CU-19 Conciliar, confirmar y ver linaje"])
+  end
+  subgraph REGS["Registros y administración"]
+    direction TB
+    CU20(["CU-20 Registro de Ventas 14.1 / RVIE"])
+    CU21(["CU-21 Registro de Inventario 12.1"])
+    CU24(["CU-24 Configurar empresa y series"])
+    CU25(["CU-25 Gestionar certificado digital"])
+    CU26(["CU-26 Configurar canal OSE/SUNAT"])
+    CU27(["CU-27 Usuarios, roles y sesión"])
+    CU28(["CU-28 Consultar auditoría"])
+  end
+  ADM --> CU12
+  ADM --> CU13
+  ADM --> CU17
+  ADM --> CU24
+  ADM --> CU25
+  ADM --> CU26
+  ADM --> CU27
+  ALM --> CU14
+  ALM --> CU15
+  ALM --> CU16
+  ALM --> CU23
+  CON --> CU11
+  CON --> CU18
+  CON --> CU20
+  CON --> CU21
+  CON --> CU28
+  GER --> CU19
+  CU11 --> RUC
+  LEG --> CU17

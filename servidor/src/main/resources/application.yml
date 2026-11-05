@@ -1,0 +1,37 @@
+# ABC Comercial - servidor (fase 2)
+spring:
+  application:
+    name: abc-comercial-servidor
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  port: 8080
+
+abc:
+  # Módulo configuracion: la empresa emisora (datos ficticios de la fase 1, docs/01)
+  emisor:
+    ruc: "20123456786"
+    razon-social: "ABC SOFTWARE CORP S.A.C."
+    nombre-comercial: "ABC ABARROTES"
+    domicilio:
+      direccion: "JR. COMERCIO 123"
+      distrito: "HUANUCO"
+      provincia: "HUANUCO"
+      departamento: "HUANUCO"
+      ubigeo: "100101"
+      codigo-establecimiento: "0000"
+
+  # Módulo tributacion: parámetros vigentes (ADR-08: datos, no constantes)
+  tributacion:
+    tasa-igv: 0.18                       # TASA_IGV (SUP-12)
+    tarifa-icbper: 0.50                  # TARIFA_ICBPER (Ley 30884, desde 2023)
+    factor-isc-pvp: 0.847                # FACTOR_ISC_PVP (sistema 03 del Catálogo N.° 08)
+    umbral-identificacion-boleta: 700.00 # UMBRAL_IDENTIFICACION_BOLETA (VAL-BOL-01)
+
+  # Módulo cpe: certificado digital PKCS#12 (ADR-04). Vacío = certificado de PRUEBA autofirmado.
+  cpe:
+    firma:
+      almacen: ${ABC_CERTIFICADO_PFX:}
+      clave: ${ABC_CERTIFICADO_CLAVE:}
+      alias: ${ABC_CERTIFICADO_ALIAS:}

@@ -1,0 +1,143 @@
+asyncapi: 3.0.0
+info:
+  title: ABC Comercial - Eventos de dominio
+  version: 1.0.0
+  description: |
+    Contratos asíncronos entre módulos (bounded contexts). En la fase 1 (monolito modular) los eventos
+    viajan por el bus interno de la aplicación con registro de publicación (patrón outbox), dentro de la
+    misma base de datos. En la fase 3 (microservicios) los MISMOS mensajes se externalizan a un broker
+    sin cambiar productores ni consumidores; solo cambia el adaptador de mensajería (ADR-05, ADR-10).
+    Sobre de mensaje: CloudEvents 1.0 (specs/schemas/evento.schema.json#/$defs/Sobre).
+defaultContentType: application/json
+
+servers:
+  bus-interno:
+    host: monolito.local
+    protocol: in-memory
+    description: Fase 1. Bus de eventos de la aplicación con tabla de publicación (outbox) en PostgreSQL.
+  broker:
+    host: broker.abc.local:5672
+    protocol: amqp
+    description: Fase 3. Broker de mensajería para microservicios (RabbitMQ o equivalente).
+
+channels:
+  comprobanteEmitido:
+    address: pe.abc.facturacion.comprobante.emitido.v1
+    messages:
+      ComprobanteEmitido:
+        $ref: '#/components/messages/ComprobanteEmitido'
+  comprobanteResultadoSunat:
+    address: pe.abc.cpe.comprobante.resultado.v1
+    description: Aceptado, observado, rechazado o excepción, según la respuesta de OSE/SUNAT.
+    messages:
+      ResultadoSunat:
+        $ref: '#/components/messages/ResultadoSunat'
+  comprobanteAnulado:
+    address: pe.abc.cpe.comprobante.anulado.v1
+    messages:
+      ComprobanteAnulado:
+        $ref: '#/components/messages/ComprobanteAnulado'
+  movimientoRegistrado:
+    address: pe.abc.inventario.movimiento.registrado.v1
+    messages:
+      MovimientoRegistrado:
+        $ref: '#/components/messages/MovimientoRegistrado'
+  loteMigracionConfirmado:
+    address: pe.abc.migracion.lote.confirmado.v1
+    messages:
+      LoteMigracionConfirmado:
+        $ref: '#/components/messages/LoteMigracionConfirmado'
+  certificadoPorVencer:
+    address: pe.abc.cpe.certificado.por-vencer.v1
+    messages:
+      CertificadoPorVencer:
+        $ref: '#/components/messages/CertificadoPorVencer'
+
+operations:
+  publicarComprobanteEmitido:
+    action: send
+    summary: facturacion publica al confirmar la transacción de emisión (outbox).
+    channel: { $ref: '#/channels/comprobanteEmitido' }
+  enviarAlCanalCpe:
+    action: receive
+    summary: cpe encola el envío a OSE/SUNAT (sendBill o inclusión en el resumen diario).
+    channel: { $ref: '#/channels/comprobanteEmitido' }
+  descargarStock:
+    action: receive
+    summary: inventario registra la salida (Tabla 12 = 01 Venta) o la entrada por devolución (05).
+    channel: { $ref: '#/channels/comprobanteEmitido' }
+  anotarRegistroVentas:
+    action: receive
+    summary: registros agrega la línea del Formato 14.1 / RVIE.
+    channel: { $ref: '#/channels/comprobanteEmitido' }
+  publicarResultadoSunat:
+    action: send
+    summary: cpe publica el resultado del CDR o del ticket.
+    channel: { $ref: '#/channels/comprobanteResultadoSunat' }
+  actualizarEstadoComprobante:
+    action: receive
+    summary: facturacion actualiza el estado y, si corresponde, notificaciones envía el PDF/XML al cliente.
+    channel: { $ref: '#/channels/comprobanteResultadoSunat' }
+  publicarComprobanteAnulado:
+    action: send
+    channel: { $ref: '#/channels/comprobanteAnulado' }
+  revertirStockPorAnulacion:
+    action: receive
+    summary: inventario revierte la salida de un comprobante anulado (Tabla 12 = 05 Devolución recibida).
+    channel: { $ref: '#/channels/comprobanteAnulado' }
+  publicarMovimiento:
+    action: send
+    channel: { $ref: '#/channels/movimientoRegistrado' }
+  anotarRegistroInventario:
+    action: receive
+    summary: registros actualiza el Formato 12.1.
+    channel: { $ref: '#/channels/movimientoRegistrado' }
+  publicarLoteConfirmado:
+    action: send
+    channel: { $ref: '#/channels/loteMigracionConfirmado' }
+  publicarCertificadoPorVencer:
+    action: send
+    summary: El planificador de cpe avisa 30, 15 y 7 días antes del vencimiento.
+    channel: { $ref: '#/channels/certificadoPorVencer' }
+
+components:
+  messages:
+    ComprobanteEmitido:
+      name: ComprobanteEmitido
+      title: Comprobante emitido (numerado y firmado)
+      headers: { $ref: '#/components/schemas/SobreCloudEvents' }
+      payload: { $ref: '../schemas/evento.schema.json#/$defs/ComprobanteEmitido' }
+    ResultadoSunat:
+      name: ResultadoSunat
+      title: Resultado de OSE/SUNAT
+      headers: { $ref: '#/components/schemas/SobreCloudEvents' }
+      payload: { $ref: '../schemas/evento.schema.json#/$defs/ResultadoSunat' }
+    ComprobanteAnulado:
+      name: ComprobanteAnulado
+      headers: { $ref: '#/components/schemas/SobreCloudEvents' }
+      payload: { $ref: '../schemas/evento.schema.json#/$defs/ComprobanteAnulado' }
+    MovimientoRegistrado:
+      name: MovimientoRegistrado
+      headers: { $ref: '#/components/schemas/SobreCloudEvents' }
+      payload: { $ref: '../schemas/evento.schema.json#/$defs/MovimientoRegistrado' }
+    LoteMigracionConfirmado:
+      name: LoteMigracionConfirmado
+      headers: { $ref: '#/components/schemas/SobreCloudEvents' }
+      payload: { $ref: '../schemas/evento.schema.json#/$defs/LoteMigracionConfirmado' }
+    CertificadoPorVencer:
+      name: CertificadoPorVencer
+      headers: { $ref: '#/components/schemas/SobreCloudEvents' }
+      payload: { $ref: '../schemas/evento.schema.json#/$defs/CertificadoPorVencer' }
+  schemas:
+    SobreCloudEvents:
+      type: object
+      description: Atributos de contexto CloudEvents 1.0 transportados como cabeceras (modo binario).
+      required: [ce_specversion, ce_id, ce_source, ce_type, ce_time]
+      properties:
+        ce_specversion: { type: string, const: '1.0' }
+        ce_id: { type: string, format: uuid }
+        ce_source: { type: string }
+        ce_type: { type: string }
+        ce_subject: { type: string }
+        ce_time: { type: string, format: date-time }
+        ce_correlationid: { type: string }

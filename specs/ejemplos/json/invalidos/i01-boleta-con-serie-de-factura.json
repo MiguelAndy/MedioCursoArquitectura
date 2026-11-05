@@ -1,0 +1,10 @@
+{
+  "tipoComprobante": "03",
+  "serie": "F002",
+  "tipoOperacion": "0101",
+  "moneda": "PEN",
+  "cliente": { "tipoDocumento": "0", "numeroDocumento": "00000000", "razonSocial": "CLIENTES VARIOS" },
+  "items": [
+    { "descripcion": "AZUCAR RUBIA BOLSA 1 KG", "unidadMedida": "NIU", "cantidad": "1", "precioUnitario": "4.50", "tipoAfectacionIgv": "10" }
+  ]
+}

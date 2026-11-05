@@ -1,0 +1,5 @@
+# Configuración de lint del contrato (Redocly CLI). localhost se usa a propósito como servidor de desarrollo.
+extends:
+  - recommended
+rules:
+  no-server-example.com: off

@@ -1,0 +1,41 @@
+{
+  "tipoComprobante": "03",
+  "serie": "B001",
+  "fechaEmision": "2026-10-22",
+  "horaEmision": "17:45:10",
+  "tipoOperacion": "0101",
+  "moneda": "PEN",
+  "cliente": {
+    "tipoDocumento": "0",
+    "numeroDocumento": "00000000",
+    "razonSocial": "CLIENTES VARIOS"
+  },
+  "items": [
+    {
+      "codigoProducto": "LEC-EVA-01",
+      "descripcion": "LECHE EVAPORADA ENTERA LATA 400 G",
+      "unidadMedida": "NIU",
+      "cantidad": "6",
+      "precioUnitario": "4.20",
+      "tipoAfectacionIgv": "10"
+    },
+    {
+      "codigoProducto": "PAP-BLA-KG",
+      "descripcion": "PAPA BLANCA FRESCA (KG)",
+      "unidadMedida": "KGM",
+      "cantidad": "3",
+      "precioUnitario": "2.50",
+      "tipoAfectacionIgv": "20"
+    },
+    {
+      "codigoProducto": "BOL-PLA-01",
+      "descripcion": "BOLSA PLASTICA",
+      "unidadMedida": "NIU",
+      "cantidad": "2",
+      "precioUnitario": "0.10",
+      "tipoAfectacionIgv": "10",
+      "icbper": { "cantidadBolsas": 2 }
+    }
+  ],
+  "puntoEmisionId": "PE-CAJA-01"
+}

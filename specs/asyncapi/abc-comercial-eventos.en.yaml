@@ -1,0 +1,155 @@
+asyncapi: 3.0.0
+info:
+  title: ABC Commercial - Domain Events
+  version: 1.0.0
+  description: |
+    Asynchronous contracts between modules (bounded contexts). In Phase 1 (modular monolith), events
+    flow through the internal application event bus backed by a transactional outbox table in PostgreSQL.
+    In Phase 3 (microservices), the SAME messages are externalized to a message broker without modifying
+    event producers or consumers; only the messaging adapter changes (ADR-05, ADR-10).
+    Message envelope: CloudEvents 1.0 (specs/schemas/evento.schema.json#/$defs/Sobre).
+defaultContentType: application/json
+
+servers:
+  internal-bus:
+    host: monolith.local
+    protocol: in-memory
+    description: Phase 1. Application event bus backed by an outbox table in PostgreSQL.
+  broker:
+    host: broker.abc.local:5672
+    protocol: amqp
+    description: Phase 3. Enterprise message broker for microservices (RabbitMQ or equivalent).
+
+channels:
+  comprobanteEmitido:
+    address: pe.abc.facturacion.comprobante.emitido.v1
+    description: Published when a tax receipt (invoice/receipt/credit note) is issued and signed.
+    messages:
+      ComprobanteEmitido:
+        $ref: '#/components/messages/ComprobanteEmitido'
+  comprobanteResultadoSunat:
+    address: pe.abc.cpe.comprobante.resultado.v1
+    description: Accepted, observed, rejected, or exceptional error according to the OSE/SUNAT response CDR.
+    messages:
+      ResultadoSunat:
+        $ref: '#/components/messages/ResultadoSunat'
+  comprobanteAnulado:
+    address: pe.abc.cpe.comprobante.anulado.v1
+    description: Published when a tax receipt is successfully voided.
+    messages:
+      ComprobanteAnulado:
+        $ref: '#/components/messages/ComprobanteAnulado'
+  movimientoRegistrado:
+    address: pe.abc.inventario.movimiento.registrado.v1
+    description: Published when any inventory stock movement is registered.
+    messages:
+      MovimientoRegistrado:
+        $ref: '#/components/messages/MovimientoRegistrado'
+  loteMigracionConfirmado:
+    address: pe.abc.migracion.lote.confirmado.v1
+    description: Published when a legacy migration staging batch is reconciled and confirmed.
+    messages:
+      LoteMigracionConfirmado:
+        $ref: '#/components/messages/LoteMigracionConfirmado'
+  certificadoPorVencer:
+    address: pe.abc.cpe.certificado.por-vencer.v1
+    description: Alert triggered when the active digital certificate is approaching expiration.
+    messages:
+      CertificadoPorVencer:
+        $ref: '#/components/messages/CertificadoPorVencer'
+
+operations:
+  publicarComprobanteEmitido:
+    action: send
+    summary: Invoicing module publishes event upon committing the issuance transaction (outbox).
+    channel: { $ref: '#/channels/comprobanteEmitido' }
+  enviarAlCanalCpe:
+    action: receive
+    summary: Electronic invoicing (CPE) module enqueues transmission to OSE/SUNAT (sendBill or daily summary).
+    channel: { $ref: '#/channels/comprobanteEmitido' }
+  descargarStock:
+    action: receive
+    summary: Inventory module registers stock dispatch (Table 12 = 01 Sale) or return entry (05).
+    channel: { $ref: '#/channels/comprobanteEmitido' }
+  anotarRegistroVentas:
+    action: receive
+    summary: Official tax registers module appends line item to Format 14.1 / RVIE (SIRE).
+    channel: { $ref: '#/channels/comprobanteEmitido' }
+  publicarResultadoSunat:
+    action: send
+    summary: CPE module publishes CDR receipt verification result or status ticket.
+    channel: { $ref: '#/channels/comprobanteResultadoSunat' }
+  actualizarEstadoComprobante:
+    action: receive
+    summary: Invoicing updates document status and, if applicable, notifications service dispatches PDF/XML to customer.
+    channel: { $ref: '#/channels/comprobanteResultadoSunat' }
+  publicarComprobanteAnulado:
+    action: send
+    summary: CPE module publishes voided receipt notification.
+    channel: { $ref: '#/channels/comprobanteAnulado' }
+  revertirStockPorAnulacion:
+    action: receive
+    summary: Inventory reverses outbound dispatch for voided receipt (Table 12 = 05 Return received).
+    channel: { $ref: '#/channels/comprobanteAnulado' }
+  publicarMovimiento:
+    action: send
+    summary: Inventory publishes movement event after stock transaction commits.
+    channel: { $ref: '#/channels/movimientoRegistrado' }
+  anotarRegistroInventario:
+    action: receive
+    summary: Official tax registers module updates Format 12.1 (Permanent Inventory Record in Physical Units).
+    channel: { $ref: '#/channels/movimientoRegistrado' }
+  publicarLoteConfirmado:
+    action: send
+    summary: Migration engine publishes event when legacy historical batch is fully committed.
+    channel: { $ref: '#/channels/loteMigracionConfirmado' }
+  publicarCertificadoPorVencer:
+    action: send
+    summary: CPE scheduler triggers notifications 30, 15, and 7 days prior to certificate expiration.
+    channel: { $ref: '#/channels/certificadoPorVencer' }
+
+components:
+  messages:
+    ComprobanteEmitido:
+      name: ComprobanteEmitido
+      title: Tax receipt issued (numbered and digitally signed)
+      headers: { $ref: '#/components/schemas/SobreCloudEvents' }
+      payload: { $ref: '../schemas/evento.schema.json#/$defs/ComprobanteEmitido' }
+    ResultadoSunat:
+      name: ResultadoSunat
+      title: OSE / SUNAT validation result
+      headers: { $ref: '#/components/schemas/SobreCloudEvents' }
+      payload: { $ref: '../schemas/evento.schema.json#/$defs/ResultadoSunat' }
+    ComprobanteAnulado:
+      name: ComprobanteAnulado
+      title: Tax receipt voided
+      headers: { $ref: '#/components/schemas/SobreCloudEvents' }
+      payload: { $ref: '../schemas/evento.schema.json#/$defs/ComprobanteAnulado' }
+    MovimientoRegistrado:
+      name: MovimientoRegistrado
+      title: Inventory movement registered
+      headers: { $ref: '#/components/schemas/SobreCloudEvents' }
+      payload: { $ref: '../schemas/evento.schema.json#/$defs/MovimientoRegistrado' }
+    LoteMigracionConfirmado:
+      name: LoteMigracionConfirmado
+      title: Legacy migration batch confirmed
+      headers: { $ref: '#/components/schemas/SobreCloudEvents' }
+      payload: { $ref: '../schemas/evento.schema.json#/$defs/LoteMigracionConfirmado' }
+    CertificadoPorVencer:
+      name: CertificadoPorVencer
+      title: Digital certificate expiration warning
+      headers: { $ref: '#/components/schemas/SobreCloudEvents' }
+      payload: { $ref: '../schemas/evento.schema.json#/$defs/CertificadoPorVencer' }
+  schemas:
+    SobreCloudEvents:
+      type: object
+      description: CloudEvents 1.0 contextual attributes transported as HTTP/message headers (binary mode).
+      required: [ce_specversion, ce_id, ce_source, ce_type, ce_time]
+      properties:
+        ce_specversion: { type: string, const: '1.0' }
+        ce_id: { type: string, format: uuid }
+        ce_source: { type: string }
+        ce_type: { type: string }
+        ce_subject: { type: string }
+        ce_time: { type: string, format: date-time }
+        ce_correlationid: { type: string }

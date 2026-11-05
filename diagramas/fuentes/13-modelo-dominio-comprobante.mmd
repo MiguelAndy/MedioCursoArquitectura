@@ -1,0 +1,130 @@
+classDiagram
+  direction LR
+  class Comprobante {
+    <<AggregateRoot>>
+    +ComprobanteId id
+    +Cat01TipoComprobante tipo
+    +NumeroComprobante numero
+    +LocalDate fechaEmision
+    +LocalTime horaEmision
+    +Cat51TipoOperacion tipoOperacion
+    +Cat02Moneda moneda
+    +EstadoComprobante estado
+    +emitir(motor, numerador)
+    +registrarRespuesta(respuesta)
+    +solicitarBaja(motivo)
+  }
+  class LineaComprobante {
+    <<Entity>>
+    +int numeroOrden
+    +ProductoRef producto
+    +Cantidad cantidad
+    +Dinero valorUnitario
+    +Dinero precioUnitario
+    +Dinero valorReferencial
+    +Cat07AfectacionIgv afectacion
+    +Dinero valorVenta
+    +Dinero igv
+  }
+  class Isc {
+    <<ValueObject>>
+    +Cat08SistemaIsc sistema
+    +Dinero base
+    +Porcentaje tasa
+    +Dinero monto
+  }
+  class Icbper {
+    <<ValueObject>>
+    +int cantidadBolsas
+    +Dinero tarifa
+    +Dinero monto
+  }
+  class CargoDescuento {
+    <<ValueObject>>
+    +Cat53Codigo codigo
+    +Factor factor
+    +Dinero monto
+    +Dinero base
+  }
+  class Adquirente {
+    <<ValueObject>>
+    +DocumentoIdentidad documento
+    +String razonSocial
+    +String direccion
+  }
+  class DocumentoIdentidad {
+    <<ValueObject>>
+    +Cat06TipoDocumento tipo
+    +String numero
+    +validarDigitoRuc()
+  }
+  class FormaPago {
+    <<ValueObject>>
+    +TipoPago tipo
+    +Dinero montoPendiente
+  }
+  class Cuota {
+    <<ValueObject>>
+    +int numero
+    +Dinero monto
+    +LocalDate vencimiento
+  }
+  class DocumentoReferencia {
+    <<ValueObject>>
+    +NumeroComprobante numero
+    +Cat09o10Motivo motivo
+    +String sustento
+  }
+  class Totales {
+    <<ValueObject>>
+    +Dinero gravadas
+    +Dinero exoneradas
+    +Dinero inafectas
+    +Dinero gratuitas
+    +Dinero igv
+    +Dinero isc
+    +Dinero icbper
+    +Dinero importeTotal
+  }
+  class Leyenda {
+    <<ValueObject>>
+    +Cat52Codigo codigo
+    +String texto
+  }
+  class NumeroComprobante {
+    <<ValueObject>>
+    +String serie
+    +int correlativo
+  }
+  class Serie {
+    <<AggregateRoot>>
+    +String codigo
+    +Cat01TipoComprobante tipo
+    +String puntoEmisionId
+    +int ultimoCorrelativo
+    +siguiente() NumeroComprobante
+  }
+  class MotorTributario {
+    <<DomainService>>
+    +calcular(comprobante, parametros) Totales
+  }
+  class ValidadorNormativo {
+    <<DomainService>>
+    +validar(comprobante) List~Violacion~
+  }
+  Comprobante "1" *-- "1..500" LineaComprobante
+  LineaComprobante "1" *-- "0..1" Isc
+  LineaComprobante "1" *-- "0..1" Icbper
+  LineaComprobante "1" *-- "0..5" CargoDescuento
+  Comprobante "1" *-- "0..10" CargoDescuento
+  Comprobante *-- Adquirente
+  Adquirente *-- DocumentoIdentidad
+  Comprobante *-- "0..1" FormaPago
+  FormaPago *-- "0..999" Cuota
+  Comprobante *-- "0..1" DocumentoReferencia
+  Comprobante *-- Totales
+  Comprobante *-- "1..*" Leyenda
+  Comprobante *-- NumeroComprobante
+  Serie ..> NumeroComprobante : asigna
+  MotorTributario ..> Comprobante : calcula
+  ValidadorNormativo ..> Comprobante : valida

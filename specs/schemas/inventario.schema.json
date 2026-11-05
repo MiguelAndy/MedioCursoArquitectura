@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Inventario (kardex)",
+  "description": "Contratos del módulo inventario, alineados columna por columna con el Formato 12.1 de la RS 234-2006/SUNAT (Registro del Inventario Permanente en Unidades Físicas). Es también el destino de las fichas del sistema legado (fecha, ingreso, salida, producto, nro_documento).",
+  "$defs": {
+    "DocumentoSoporte": {
+      "type": "object",
+      "description": "Documento de traslado, comprobante de pago, documento interno o similar (Formato 12.1).",
+      "additionalProperties": false,
+      "required": ["tipo", "numero"],
+      "properties": {
+        "tipo": { "$ref": "catalogos-sunat.schema.json#/$defs/Tabla10TipoDocumento" },
+        "serie": { "type": "string", "maxLength": 20 },
+        "numero": { "type": "string", "minLength": 1, "maxLength": 20 },
+        "comprobanteId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "textoOriginal": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Valor literal del nro_documento del legado, conservado para trazabilidad (MIG-04)."
+        }
+      }
+    },
+    "MovimientoInventarioRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fecha", "almacenId", "productoId", "tipoOperacion", "documentoSoporte"],
+      "properties": {
+        "fecha": { "$ref": "comun.schema.json#/$defs/Fecha" },
+        "almacenId": { "type": "string", "minLength": 1, "maxLength": 20 },
+        "productoId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "tipoOperacion": { "$ref": "catalogos-sunat.schema.json#/$defs/Tabla12TipoOperacion" },
+        "documentoSoporte": { "$ref": "#/$defs/DocumentoSoporte" },
+        "cantidadEntrada": { "$ref": "comun.schema.json#/$defs/Cantidad" },
+        "cantidadSalida": { "$ref": "comun.schema.json#/$defs/Cantidad" },
+        "unidadMedida": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat03UnidadMedida" },
+        "costoUnitario": { "$ref": "comun.schema.json#/$defs/ValorUnitario" },
+        "observacion": { "type": "string", "maxLength": 200 }
+      },
+      "oneOf": [
+        { "required": ["cantidadEntrada"], "not": { "required": ["cantidadSalida"] } },
+        { "required": ["cantidadSalida"], "not": { "required": ["cantidadEntrada"] } }
+      ]
+    },
+    "ReferenciaLegado": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["loteId", "idLegado", "hashRegistro"],
+      "properties": {
+        "loteId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "idLegado": { "type": "string" },
+        "hashRegistro": { "type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 de la ficha original." }
+      }
+    },
+    "MovimientoInventario": {
+      "allOf": [
+        { "$ref": "#/$defs/MovimientoInventarioRequest" },
+        {
+          "type": "object",
+          "required": ["id", "origen", "saldoFinal"],
+          "properties": {
+            "id": { "$ref": "comun.schema.json#/$defs/Uuid" },
+            "origen": { "type": "string", "enum": ["VENTA", "NOTA_CREDITO", "COMPRA", "AJUSTE", "TRANSFERENCIA", "MIGRACION"] },
+            "saldoFinal": { "type": "string", "pattern": "^-?\\d{1,12}(\\.\\d{1,10})?$" },
+            "referenciaLegado": { "$ref": "#/$defs/ReferenciaLegado" },
+            "auditoria": { "$ref": "comun.schema.json#/$defs/Auditoria" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Existencia": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["almacenId", "productoId", "saldo", "unidadMedida"],
+      "properties": {
+        "almacenId": { "type": "string" },
+        "productoId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "codigoProducto": { "type": "string" },
+        "descripcion": { "type": "string" },
+        "saldo": { "type": "string", "pattern": "^-?\\d{1,12}(\\.\\d{1,10})?$" },
+        "unidadMedida": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat03UnidadMedida" },
+        "actualizadoEn": { "$ref": "comun.schema.json#/$defs/FechaHora" }
+      }
+    },
+    "KardexFormato121": {
+      "type": "object",
+      "description": "Vista del Formato 12.1 para un producto y periodo.",
+      "additionalProperties": false,
+      "required": ["periodo", "ruc", "razonSocial", "establecimiento", "codigoExistencia", "tipoExistencia", "descripcion", "unidadMedida", "lineas"],
+      "properties": {
+        "periodo": { "$ref": "comun.schema.json#/$defs/Periodo" },
+        "ruc": { "$ref": "comun.schema.json#/$defs/Ruc" },
+        "razonSocial": { "type": "string" },
+        "establecimiento": { "$ref": "comun.schema.json#/$defs/CodigoEstablecimiento" },
+        "codigoExistencia": { "type": "string" },
+        "tipoExistencia": { "$ref": "catalogos-sunat.schema.json#/$defs/Tabla5TipoExistencia" },
+        "descripcion": { "type": "string" },
+        "unidadMedida": { "$ref": "catalogos-sunat.schema.json#/$defs/Tabla6UnidadMedida" },
+        "lineas": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["fecha", "tipoDocumento", "numero", "tipoOperacion", "entradas", "salidas", "saldoFinal"],
+            "properties": {
+              "fecha": { "$ref": "comun.schema.json#/$defs/Fecha" },
+              "tipoDocumento": { "$ref": "catalogos-sunat.schema.json#/$defs/Tabla10TipoDocumento" },
+              "serie": { "type": "string" },
+              "numero": { "type": "string" },
+              "tipoOperacion": { "$ref": "catalogos-sunat.schema.json#/$defs/Tabla12TipoOperacion" },
+              "entradas": { "type": "string" },
+              "salidas": { "type": "string" },
+              "saldoFinal": { "type": "string" },
+              "movimientoId": { "$ref": "comun.schema.json#/$defs/Uuid" }
+            }
+          }
+        },
+        "totalEntradas": { "type": "string" },
+        "totalSalidas": { "type": "string" }
+      }
+    }
+  }
+}

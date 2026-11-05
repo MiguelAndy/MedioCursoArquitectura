@@ -1,0 +1,28 @@
+flowchart LR
+  FAC["facturacion<br/>Comprobante · Serie · notas"]
+  TRIB["tributacion<br/>catálogos Anexo 8 · parámetros<br/>TasaIsc · motor tributario"]
+  TER["terceros<br/>clientes · proveedores · RUC"]
+  CAT["catalogo<br/>productos · precios"]
+  CONF["configuracion<br/>empresa · establecimientos<br/>puntos de emisión"]
+  CPE["cpe<br/>UBL · firma · envío · CDR · RC / RA"]
+  INV["inventario<br/>kardex · existencias"]
+  REG["registros<br/>14.1 / RVIE · 12.1"]
+  MIG["migracion<br/>staging · reglas MIG · linaje"]
+  NOT["notificaciones"]
+  CTR[["contratos<br/>lenguaje publicado:<br/>eventos generados del AsyncAPI"]]
+  FAC --> TRIB
+  FAC --> TER
+  FAC --> CAT
+  FAC --> CONF
+  FAC -- "DocumentoElectronicoApi<br/>generar y firmar" --> CPE
+  CAT --> TRIB
+  CPE --> CONF
+  INV --> CAT
+  MIG --> CAT
+  MIG --> INV
+  FAC -. "publica / consume" .-> CTR
+  CPE -. "publica / consume" .-> CTR
+  INV -. "publica / consume" .-> CTR
+  REG -. "consume" .-> CTR
+  NOT -. "consume" .-> CTR
+  MIG -. "publica" .-> CTR

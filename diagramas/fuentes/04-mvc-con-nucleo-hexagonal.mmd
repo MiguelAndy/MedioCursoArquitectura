@@ -1,0 +1,30 @@
+flowchart TB
+  subgraph V["V · VISTA"]
+    V1["Pantallas nativas Windows y Android (Compose)<br/>+ representaciones del servidor: JSON (DTO) · PDF · XML"]
+  end
+  subgraph C["C · CONTROLADOR = adaptador primario"]
+    C1["Controladores REST · Spring Web MVC<br/>ComprobanteController · ProductoController · MigracionController ...<br/>(interfaces generadas desde el OpenAPI)"]
+    C2["Planificador y oyentes de eventos<br/>(también conducen casos de uso)"]
+  end
+  subgraph M["M · MODELO = núcleo hexagonal (sin dependencias de frameworks en el dominio)"]
+    IN["Puertos de entrada · casos de uso<br/>EmitirComprobanteUseCase · AnularComprobanteUseCase · CargarLoteLegadoUseCase ..."]
+    SRVA["Servicios de aplicación<br/>transacciones · orquestación · publicación de eventos"]
+    DOM["Dominio<br/>Agregados: Comprobante · Serie · Producto · Existencia · LoteMigracion<br/>Servicios: MotorTributario · ValidadorNormativo"]
+    OUT["Puertos de salida · interfaces<br/>ComprobanteRepository · NumeradorPort · DocumentoElectronicoPort<br/>CanalEnvioCpePort · ConsultaContribuyentePort · PublicadorEventos"]
+  end
+  subgraph A["Adaptadores secundarios = infraestructura"]
+    A1["JPA / PostgreSQL"]
+    A2["UBL 2.1 + XMLDSig"]
+    A3["SOAP OSE / SUNAT"]
+    A4["Padrón RUC · PDF · correo"]
+  end
+  V1 <-->|"HTTPS / JSON (DTO)"| C1
+  C1 --> IN
+  C2 --> IN
+  IN --> SRVA
+  SRVA --> DOM
+  SRVA --> OUT
+  OUT -. "implementado por" .-> A1
+  OUT -. "implementado por" .-> A2
+  OUT -. "implementado por" .-> A3
+  OUT -. "implementado por" .-> A4

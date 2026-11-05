@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Migración del sistema legado",
+  "description": "Contratos del módulo migracion (CU-22 a CU-24). La ficha legada se conserva intacta (staging) junto con su hash; cada registro migrado deja un linaje inmutable hacia la entidad nueva (requisito REQ-08: 'sin perder trazabilidad').",
+  "$defs": {
+    "FichaLegado": {
+      "type": "object",
+      "description": "Registro tal como existe en el software básico de almacén. Todos los campos se reciben como texto porque el origen es informal (formatos mezclados).",
+      "additionalProperties": false,
+      "required": ["idLegado", "fecha", "producto"],
+      "properties": {
+        "idLegado": { "type": "string", "minLength": 1, "maxLength": 50, "description": "Clave del origen o, si no existe, archivo#hoja#fila." },
+        "fecha": { "type": "string", "maxLength": 30 },
+        "ingreso": { "type": ["string", "null"], "maxLength": 30 },
+        "salida": { "type": ["string", "null"], "maxLength": 30 },
+        "producto": { "type": "string", "maxLength": 200 },
+        "nroDocumento": { "type": ["string", "null"], "maxLength": 100 },
+        "fuente": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "archivo": { "type": "string" },
+            "hoja": { "type": "string" },
+            "fila": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "CrearLoteRequest": {
+      "type": "object",
+      "description": "Parte JSON del multipart de POST /migraciones/lotes (el archivo va en la parte 'archivo').",
+      "additionalProperties": false,
+      "required": ["tipoFuente", "almacenId", "fechaCorte"],
+      "properties": {
+        "tipoFuente": { "type": "string", "enum": ["CSV", "XLSX", "ACCESS", "DBF", "JDBC"] },
+        "almacenId": { "type": "string" },
+        "fechaCorte": { "$ref": "comun.schema.json#/$defs/Fecha", "description": "Fecha hasta la cual se migra; desde el día siguiente opera el sistema nuevo." },
+        "mapeoColumnas": {
+          "type": "object",
+          "description": "Nombre de columna del origen para cada campo lógico.",
+          "additionalProperties": false,
+          "properties": {
+            "fecha": { "type": "string" },
+            "ingreso": { "type": "string" },
+            "salida": { "type": "string" },
+            "producto": { "type": "string" },
+            "nroDocumento": { "type": "string" }
+          }
+        },
+        "versionReglas": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$", "default": "1.0.0" }
+      }
+    },
+    "EstadoLote": {
+      "type": "string",
+      "oneOf": [
+        { "const": "CARGADO", "title": "Fichas copiadas a staging con su hash" },
+        { "const": "PERFILADO", "title": "Calidad de datos medida" },
+        { "const": "TRANSFORMADO", "title": "Reglas MIG aplicadas" },
+        { "const": "EN_REVISION", "title": "Hay registros observados pendientes" },
+        { "const": "CONFIRMADO", "title": "Movimientos y saldos creados; linaje sellado" },
+        { "const": "REVERTIDO", "title": "Carga anulada antes de la puesta en producción" }
+      ]
+    },
+    "LoteMigracion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "estado", "tipoFuente", "hashArchivo", "versionReglas", "contadores"],
+      "properties": {
+        "id": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "estado": { "$ref": "#/$defs/EstadoLote" },
+        "tipoFuente": { "type": "string" },
+        "nombreArchivo": { "type": "string" },
+        "hashArchivo": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "almacenId": { "type": "string" },
+        "fechaCorte": { "$ref": "comun.schema.json#/$defs/Fecha" },
+        "versionReglas": { "type": "string" },
+        "contadores": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["total", "migrados", "migradosConSupuestos", "observados", "rechazados"],
+          "properties": {
+            "total": { "type": "integer", "minimum": 0 },
+            "migrados": { "type": "integer", "minimum": 0 },
+            "migradosConSupuestos": { "type": "integer", "minimum": 0 },
+            "observados": { "type": "integer", "minimum": 0 },
+            "rechazados": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "aprobadoPor": { "type": "string" },
+        "enlaces": { "$ref": "comun.schema.json#/$defs/Enlaces" },
+        "auditoria": { "$ref": "comun.schema.json#/$defs/Auditoria" }
+      }
+    },
+    "RegistroMigracion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "loteId", "fichaOriginal", "hashRegistro", "estado"],
+      "properties": {
+        "id": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "loteId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "fichaOriginal": { "$ref": "#/$defs/FichaLegado" },
+        "hashRegistro": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "estado": { "type": "string", "enum": ["PENDIENTE", "MIGRADO", "MIGRADO_CON_SUPUESTOS", "OBSERVADO", "RECHAZADO"] },
+        "reglasAplicadas": { "type": "array", "items": { "type": "string", "pattern": "^MIG-\\d{2}$" } },
+        "observaciones": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["regla", "mensaje"],
+            "properties": {
+              "regla": { "type": "string" },
+              "mensaje": { "type": "string" },
+              "campo": { "type": "string" }
+            }
+          }
+        },
+        "propuesta": {
+          "$ref": "inventario.schema.json#/$defs/MovimientoInventarioRequest",
+          "description": "Movimiento que se creará al confirmar el lote."
+        }
+      }
+    },
+    "ResolucionRegistro": {
+      "type": "object",
+      "description": "Cuerpo de PATCH /migraciones/registros/{id} (application/merge-patch+json): decisión humana sobre un registro observado (CU-23).",
+      "additionalProperties": false,
+      "properties": {
+        "productoId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "tipoOperacion": { "$ref": "catalogos-sunat.schema.json#/$defs/Tabla12TipoOperacion" },
+        "documentoSoporte": { "$ref": "inventario.schema.json#/$defs/DocumentoSoporte" },
+        "fecha": { "$ref": "comun.schema.json#/$defs/Fecha" },
+        "descartar": { "type": "boolean" },
+        "justificacion": { "type": "string", "minLength": 5, "maxLength": 300 }
+      },
+      "required": ["justificacion"]
+    },
+    "Linaje": {
+      "type": "object",
+      "description": "Vínculo inmutable (append-only) entre una ficha del legado y la entidad que la representa en el sistema nuevo.",
+      "additionalProperties": false,
+      "required": ["idLegado", "loteId", "hashRegistro", "entidadDestino", "idDestino", "reglasAplicadas", "versionReglas", "migradoEn", "migradoPor"],
+      "properties": {
+        "idLegado": { "type": "string" },
+        "loteId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "hashRegistro": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "entidadDestino": { "type": "string", "enum": ["MovimientoInventario", "Producto", "DocumentoHistorico"] },
+        "idDestino": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "reglasAplicadas": { "type": "array", "items": { "type": "string" } },
+        "versionReglas": { "type": "string" },
+        "resolucionManual": { "type": "string" },
+        "migradoEn": { "$ref": "comun.schema.json#/$defs/FechaHora" },
+        "migradoPor": { "type": "string" }
+      }
+    },
+    "Conciliacion": {
+      "type": "object",
+      "description": "Controles de cuadre del lote (docs/09, sección de conciliación).",
+      "additionalProperties": false,
+      "required": ["loteId", "controles", "conforme"],
+      "properties": {
+        "loteId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "conforme": { "type": "boolean" },
+        "controles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["codigo", "descripcion", "valorOrigen", "valorDestino", "conforme"],
+            "properties": {
+              "codigo": { "type": "string", "examples": ["CTL-01"] },
+              "descripcion": { "type": "string" },
+              "productoId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+              "valorOrigen": { "type": "string" },
+              "valorDestino": { "type": "string" },
+              "conforme": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+flowchart LR
+  N["Normas SUNAT<br/>RS 097-2012 · RS 234-2006<br/>Anexo N.° 8 · Anexo N.° 9-A"] --> R["Reglas y validaciones<br/>VAL-* · MIG-*"]
+  X["UBL-Invoice-2.1.xsd<br/>(OASIS)"] --> M["Matriz de trazabilidad<br/>SUNAT ↔ UBL ↔ DTO"]
+  R --> C["Contratos<br/>JSON Schema · OpenAPI 3.1 · AsyncAPI 3.0"]
+  M --> C
+  C --> E["Ejemplos y contraejemplos<br/>JSON · XML UBL firmados"]
+  E --> V{"validar_specs.py<br/>esquemas · XSD · cuadres"}
+  V -- "falla" --> R
+  V -- "pasa" --> G["Generación de código<br/>interfaces del servidor · SDK de clientes"]
+  G --> I["Implementación de la<br/>lógica de negocio"]
+  I --> T["Pruebas de contrato<br/>en integración continua"]
+  T -. "regresión" .-> V

@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Terceros (clientes y proveedores)",
+  "description": "Contratos del módulo terceros. Cubren la brecha 'no valida RUCs' (G-01): todo RUC se verifica por formato, dígito verificador y padrón (estado y condición del contribuyente).",
+  "$defs": {
+    "TerceroRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tipoDocumento", "numeroDocumento", "razonSocial", "roles"],
+      "properties": {
+        "tipoDocumento": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat06TipoDocumentoIdentidad" },
+        "numeroDocumento": { "$ref": "comun.schema.json#/$defs/NumeroDocumentoIdentidad" },
+        "razonSocial": { "$ref": "comun.schema.json#/$defs/RazonSocial" },
+        "nombreComercial": { "type": "string", "maxLength": 1500 },
+        "direccion": { "type": "string", "maxLength": 200 },
+        "ubigeo": { "$ref": "comun.schema.json#/$defs/Ubigeo" },
+        "correo": { "$ref": "comun.schema.json#/$defs/Correo" },
+        "telefono": { "type": "string", "pattern": "^[0-9+ -]{6,20}$" },
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "enum": ["CLIENTE", "PROVEEDOR"] }
+        },
+        "listaPrecios": { "type": "string", "enum": ["MAYORISTA", "MINORISTA"], "default": "MINORISTA" },
+        "limiteCredito": { "$ref": "comun.schema.json#/$defs/Importe" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "tipoDocumento": { "const": "6" } } },
+          "then": { "properties": { "numeroDocumento": { "$ref": "comun.schema.json#/$defs/Ruc" } } }
+        },
+        {
+          "if": { "properties": { "tipoDocumento": { "const": "1" } } },
+          "then": { "properties": { "numeroDocumento": { "$ref": "comun.schema.json#/$defs/Dni" } } }
+        }
+      ]
+    },
+    "Tercero": {
+      "allOf": [
+        { "$ref": "#/$defs/TerceroRequest" },
+        {
+          "type": "object",
+          "required": ["id", "verificacion"],
+          "properties": {
+            "id": { "$ref": "comun.schema.json#/$defs/Uuid" },
+            "verificacion": { "$ref": "#/$defs/Verificacion" },
+            "auditoria": { "$ref": "comun.schema.json#/$defs/Auditoria" }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "Verificacion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fuente", "verificadoEn"],
+      "properties": {
+        "fuente": { "type": "string", "enum": ["PADRON_REDUCIDO_RUC", "SERVICIO_EXTERNO", "MANUAL"] },
+        "verificadoEn": { "$ref": "comun.schema.json#/$defs/FechaHora" },
+        "estadoContribuyente": { "type": "string", "examples": ["ACTIVO", "BAJA DE OFICIO", "SUSPENSION TEMPORAL"] },
+        "condicionDomicilio": { "type": "string", "examples": ["HABIDO", "NO HABIDO", "NO HALLADO"] }
+      }
+    },
+    "ConsultaRucResponse": {
+      "type": "object",
+      "description": "Resultado de GET /consultas/ruc/{ruc} (CU-15).",
+      "additionalProperties": false,
+      "required": ["ruc", "formatoValido", "digitoVerificadorValido"],
+      "properties": {
+        "ruc": { "type": "string" },
+        "formatoValido": { "type": "boolean" },
+        "digitoVerificadorValido": { "type": "boolean" },
+        "encontrado": { "type": "boolean" },
+        "razonSocial": { "type": "string" },
+        "estadoContribuyente": { "type": "string" },
+        "condicionDomicilio": { "type": "string" },
+        "direccion": { "type": "string" },
+        "ubigeo": { "type": "string" },
+        "aptoParaFactura": {
+          "type": "boolean",
+          "description": "true si el RUC es válido, existe y está ACTIVO. Un RUC NO HABIDO genera advertencia (VAL-ID-04)."
+        },
+        "advertencias": { "type": "array", "items": { "type": "string" } },
+        "fuente": { "type": "string", "enum": ["PADRON_REDUCIDO_RUC", "SERVICIO_EXTERNO", "CACHE"] },
+        "consultadoEn": { "$ref": "comun.schema.json#/$defs/FechaHora" }
+      }
+    }
+  }
+}

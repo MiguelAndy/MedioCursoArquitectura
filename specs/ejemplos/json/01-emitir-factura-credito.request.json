@@ -1,0 +1,65 @@
+{
+  "tipoComprobante": "01",
+  "serie": "F001",
+  "fechaEmision": "2026-10-22",
+  "horaEmision": "10:30:00",
+  "fechaVencimiento": "2026-12-21",
+  "tipoOperacion": "0101",
+  "moneda": "PEN",
+  "cliente": {
+    "tipoDocumento": "6",
+    "numeroDocumento": "20456789120",
+    "razonSocial": "DISTRIBUIDORA SANTA ROSA DEL HUALLAGA E.I.R.L.",
+    "direccion": "JR. HUALLAGA 456, TINGO MARIA",
+    "ubigeo": "100601",
+    "correo": "compras@santarosa.example"
+  },
+  "items": [
+    {
+      "codigoProducto": "LEC-EVA-48",
+      "descripcion": "LECHE EVAPORADA ENTERA CAJA X 48 LATAS 400 G",
+      "unidadMedida": "BX",
+      "cantidad": "10",
+      "valorUnitario": "150.00",
+      "tipoAfectacionIgv": "10"
+    },
+    {
+      "codigoProducto": "ACE-VEG-12",
+      "descripcion": "ACEITE VEGETAL CAJA X 12 BOTELLAS 1 L",
+      "unidadMedida": "BX",
+      "cantidad": "5",
+      "valorUnitario": "85.00",
+      "tipoAfectacionIgv": "10"
+    },
+    {
+      "codigoProducto": "FID-SPA-20",
+      "descripcion": "FIDEOS SPAGHETTI CAJA X 20 PAQUETES 500 G",
+      "unidadMedida": "BX",
+      "cantidad": "8",
+      "valorUnitario": "42.00",
+      "tipoAfectacionIgv": "10"
+    },
+    {
+      "codigoProducto": "GAL-SOD-06",
+      "descripcion": "GALLETAS DE SODA PAQUETE X 6 UNIDADES - BONIFICACION",
+      "unidadMedida": "PK",
+      "cantidad": "6",
+      "valorReferencialUnitario": "5.00",
+      "tipoAfectacionIgv": "15"
+    }
+  ],
+  "formaPago": {
+    "tipo": "CREDITO",
+    "montoPendiente": "2667.98",
+    "cuotas": [
+      { "numero": 1, "monto": "1333.99", "fechaVencimiento": "2026-11-21" },
+      { "numero": 2, "monto": "1333.99", "fechaVencimiento": "2026-12-21" }
+    ]
+  },
+  "guiasRemision": [
+    { "tipo": "09", "numero": "T001-45" }
+  ],
+  "ordenCompra": "OC-0099",
+  "puntoEmisionId": "PE-ALMACEN-01",
+  "notificarCliente": true
+}

@@ -1,0 +1,20 @@
+flowchart TB
+  subgraph DISP["Dispositivos: vistas nativas"]
+    WIN["App de escritorio Windows<br/>Kotlin · Compose Multiplatform<br/>instalador MSI"]
+    AND["App Android<br/>Kotlin · Compose Multiplatform<br/>APK firmado"]
+    PRN["Impresoras térmicas<br/>USB / Bluetooth (ESC/POS)"]
+  end
+  subgraph SRV["Servidor on-premise: servicio de Windows instalado con MSI"]
+    MON["Monolito modular MVC<br/>Java 21 · Spring Boot 3 · Spring Modulith<br/>API REST /api/v1 + planificador"]
+    DB[("PostgreSQL 16<br/>un esquema por módulo + outbox")]
+    FS[("Almacén de documentos<br/>XML · CDR · PDF")]
+  end
+  WIN -- "HTTPS/JSON (OpenAPI)" --> MON
+  AND -- "HTTPS/JSON (OpenAPI)<br/>Wi-Fi o VPN" --> MON
+  WIN --> PRN
+  AND --> PRN
+  MON --> DB
+  MON --> FS
+  MON -- "SOAP + WS-Security" --> OSE[("OSE / SUNAT")]
+  MON -- "HTTPS" --> RUC[("Padrón RUC")]
+  MON -- "SMTP / enlace" --> MSG[("Correo / WhatsApp")]

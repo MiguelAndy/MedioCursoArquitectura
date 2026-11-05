@@ -1,0 +1,333 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Catálogos SUNAT y tablas RS 234-2006 usados por ABC Comercial",
+  "description": "Subconjunto de los catálogos del Anexo N.° 8 de la RS 097-2012/SUNAT (y modificatorias) y de las tablas del Anexo 3 de la RS 234-2006/SUNAT que el sistema necesita en la fase 1. En ejecución, los catálogos completos y sus vigencias se cargan como datos versionados (módulo tributacion, ADR-08); este archivo es el contrato mínimo que validan los clientes. Cada código lleva su descripción en 'title'.",
+  "$defs": {
+    "Cat01TipoComprobante": {
+      "description": "Catálogo N.° 01 - Código de tipo de documento (cbc:InvoiceTypeCode, cbc:DocumentTypeCode).",
+      "type": "string",
+      "oneOf": [
+        { "const": "01", "title": "Factura" },
+        { "const": "03", "title": "Boleta de venta" },
+        { "const": "07", "title": "Nota de crédito" },
+        { "const": "08", "title": "Nota de débito" },
+        { "const": "09", "title": "Guía de remisión remitente" },
+        { "const": "12", "title": "Ticket de máquina registradora" },
+        { "const": "20", "title": "Comprobante de retención" },
+        { "const": "31", "title": "Guía de remisión transportista" },
+        { "const": "40", "title": "Comprobante de percepción" }
+      ]
+    },
+    "Cat01ComprobanteEmitible": {
+      "description": "Tipos que el sistema emite en la fase 1.",
+      "type": "string",
+      "oneOf": [
+        { "const": "01", "title": "Factura" },
+        { "const": "03", "title": "Boleta de venta" },
+        { "const": "07", "title": "Nota de crédito" },
+        { "const": "08", "title": "Nota de débito" }
+      ]
+    },
+    "Cat01ComprobanteModificable": {
+      "description": "Comprobantes que puede modificar una nota de crédito o débito.",
+      "type": "string",
+      "oneOf": [
+        { "const": "01", "title": "Factura" },
+        { "const": "03", "title": "Boleta de venta" }
+      ]
+    },
+    "Cat01GuiaRemision": {
+      "type": "string",
+      "oneOf": [
+        { "const": "09", "title": "Guía de remisión remitente" },
+        { "const": "31", "title": "Guía de remisión transportista" }
+      ]
+    },
+    "Cat02Moneda": {
+      "description": "Catálogo N.° 02 - ISO 4217 Alpha (cbc:DocumentCurrencyCode, @currencyID).",
+      "type": "string",
+      "oneOf": [
+        { "const": "PEN", "title": "Sol" },
+        { "const": "USD", "title": "Dólar estadounidense" },
+        { "const": "EUR", "title": "Euro" }
+      ]
+    },
+    "Cat03UnidadMedida": {
+      "description": "Catálogo N.° 03 - UN/ECE Recomendación 20 (cbc:InvoicedQuantity/@unitCode). Subconjunto para abarrotes.",
+      "type": "string",
+      "oneOf": [
+        { "const": "NIU", "title": "Unidad (bienes)" },
+        { "const": "ZZ", "title": "Unidad (servicios)" },
+        { "const": "KGM", "title": "Kilogramo" },
+        { "const": "GRM", "title": "Gramo" },
+        { "const": "TNE", "title": "Tonelada" },
+        { "const": "LTR", "title": "Litro" },
+        { "const": "MLT", "title": "Mililitro" },
+        { "const": "GLL", "title": "Galón (US)" },
+        { "const": "BX", "title": "Caja" },
+        { "const": "PK", "title": "Paquete" },
+        { "const": "BG", "title": "Bolsa" },
+        { "const": "BO", "title": "Botella" },
+        { "const": "CA", "title": "Lata" },
+        { "const": "BE", "title": "Fardo" },
+        { "const": "DZN", "title": "Docena" },
+        { "const": "CEN", "title": "Ciento de unidades" },
+        { "const": "MLL", "title": "Millar" },
+        { "const": "SET", "title": "Juego" },
+        { "const": "PR", "title": "Par" }
+      ]
+    },
+    "Cat05Tributo": {
+      "description": "Catálogo N.° 05 - Código de tributo (cac:TaxScheme/cbc:ID). En el título: nombre, código UN/ECE 5153 (cbc:TaxTypeCode) y categoría UN/ECE 5305 (cac:TaxCategory/cbc:ID).",
+      "type": "string",
+      "oneOf": [
+        { "const": "1000", "title": "IGV - VAT - S" },
+        { "const": "1016", "title": "IVAP - VAT - S" },
+        { "const": "2000", "title": "ISC - EXC - S" },
+        { "const": "7152", "title": "ICBPER - OTH - S" },
+        { "const": "9995", "title": "EXP (exportación) - FRE - G" },
+        { "const": "9996", "title": "GRA (gratuito) - FRE - Z" },
+        { "const": "9997", "title": "EXO (exonerado) - VAT - E" },
+        { "const": "9998", "title": "INA (inafecto) - FRE - O" },
+        { "const": "9999", "title": "OTROS - OTH - S" }
+      ]
+    },
+    "Cat06TipoDocumentoIdentidad": {
+      "description": "Catálogo N.° 06 - Tipo de documento de identidad (cbc:ID/@schemeID). El guion se usa solo en los supuestos normativos (RS 000005-2023/SUNAT).",
+      "type": "string",
+      "oneOf": [
+        { "const": "0", "title": "Doc. tributario no domiciliado sin RUC" },
+        { "const": "1", "title": "Documento nacional de identidad (DNI)" },
+        { "const": "4", "title": "Carné de extranjería" },
+        { "const": "6", "title": "Registro único de contribuyentes (RUC)" },
+        { "const": "7", "title": "Pasaporte" },
+        { "const": "A", "title": "Cédula diplomática de identidad" },
+        { "const": "B", "title": "Doc. de identidad del país de residencia (no domiciliado)" },
+        { "const": "C", "title": "Tax Identification Number (TIN)" },
+        { "const": "D", "title": "Identification Number (IN)" },
+        { "const": "E", "title": "Tarjeta Andina de Migración (TAM)" },
+        { "const": "F", "title": "Permiso Temporal de Permanencia (PTP)" },
+        { "const": "G", "title": "Salvoconducto" },
+        { "const": "-", "title": "Sin documento (guion, solo supuestos normativos)" }
+      ]
+    },
+    "Cat07TipoAfectacionIgv": {
+      "description": "Catálogo N.° 07 - Tipo de afectación del IGV (cac:TaxCategory/cbc:TaxExemptionReasonCode).",
+      "type": "string",
+      "oneOf": [
+        { "const": "10", "title": "Gravado - Operación onerosa" },
+        { "const": "11", "title": "Gravado - Retiro por premio" },
+        { "const": "12", "title": "Gravado - Retiro por donación" },
+        { "const": "13", "title": "Gravado - Retiro" },
+        { "const": "14", "title": "Gravado - Retiro por publicidad" },
+        { "const": "15", "title": "Gravado - Bonificaciones" },
+        { "const": "16", "title": "Gravado - Retiro por entrega a trabajadores" },
+        { "const": "17", "title": "Gravado - IVAP" },
+        { "const": "20", "title": "Exonerado - Operación onerosa" },
+        { "const": "21", "title": "Exonerado - Transferencia gratuita" },
+        { "const": "30", "title": "Inafecto - Operación onerosa" },
+        { "const": "31", "title": "Inafecto - Retiro por bonificación" },
+        { "const": "32", "title": "Inafecto - Retiro" },
+        { "const": "33", "title": "Inafecto - Retiro por muestras médicas" },
+        { "const": "34", "title": "Inafecto - Retiro por convenio colectivo" },
+        { "const": "35", "title": "Inafecto - Retiro por premio" },
+        { "const": "36", "title": "Inafecto - Retiro por publicidad" },
+        { "const": "37", "title": "Inafecto - Transferencia gratuita" },
+        { "const": "40", "title": "Exportación de bienes o servicios" }
+      ]
+    },
+    "Cat07AfectacionGratuita": {
+      "description": "Códigos del Catálogo N.° 07 que corresponden a operaciones no onerosas (transferencias gratuitas, retiros, bonificaciones): exigen valor referencial (Cat. 16 = 02) y leyenda 1002.",
+      "type": "string",
+      "enum": ["11", "12", "13", "14", "15", "16", "21", "31", "32", "33", "34", "35", "36", "37"]
+    },
+    "Cat08SistemaIsc": {
+      "description": "Catálogo N.° 08 - Tipo de sistema de cálculo del ISC (cac:TaxCategory/cbc:TierRange). Punto clave del enunciado.",
+      "type": "string",
+      "oneOf": [
+        { "const": "01", "title": "Sistema al valor (Apéndice IV, lit. A - TUO IGV e ISC)" },
+        { "const": "02", "title": "Aplicación del monto fijo (Apéndice IV, lit. B - TUO IGV e ISC)" },
+        { "const": "03", "title": "Sistema de precios de venta al público (Apéndice IV, lit. C - TUO IGV e ISC)" }
+      ]
+    },
+    "Cat09TipoNotaCredito": {
+      "description": "Catálogo N.° 09 - Tipo de nota de crédito (cac:DiscrepancyResponse/cbc:ResponseCode).",
+      "type": "string",
+      "oneOf": [
+        { "const": "01", "title": "Anulación de la operación" },
+        { "const": "02", "title": "Anulación por error en el RUC" },
+        { "const": "03", "title": "Corrección por error en la descripción" },
+        { "const": "04", "title": "Descuento global" },
+        { "const": "05", "title": "Descuento por ítem" },
+        { "const": "06", "title": "Devolución total" },
+        { "const": "07", "title": "Devolución por ítem" },
+        { "const": "08", "title": "Bonificación" },
+        { "const": "09", "title": "Disminución en el valor" },
+        { "const": "10", "title": "Otros conceptos" },
+        { "const": "11", "title": "Ajustes de operaciones de exportación" },
+        { "const": "12", "title": "Ajustes afectos al IVAP" },
+        { "const": "13", "title": "Ajustes - montos y/o fechas de pago" }
+      ]
+    },
+    "Cat10TipoNotaDebito": {
+      "description": "Catálogo N.° 10 - Tipo de nota de débito (cac:DiscrepancyResponse/cbc:ResponseCode).",
+      "type": "string",
+      "oneOf": [
+        { "const": "01", "title": "Intereses por mora" },
+        { "const": "02", "title": "Aumento en el valor" },
+        { "const": "03", "title": "Penalidades / otros conceptos" },
+        { "const": "11", "title": "Ajustes de operaciones de exportación" },
+        { "const": "12", "title": "Ajustes afectos al IVAP" }
+      ]
+    },
+    "Cat16TipoPrecio": {
+      "description": "Catálogo N.° 16 - Tipo de precio de venta unitario (cac:AlternativeConditionPrice/cbc:PriceTypeCode).",
+      "type": "string",
+      "oneOf": [
+        { "const": "01", "title": "Precio unitario (incluye el IGV)" },
+        { "const": "02", "title": "Valor referencial unitario en operaciones no onerosas" }
+      ]
+    },
+    "Cat51TipoOperacion": {
+      "description": "Catálogo N.° 51 - Código de tipo de operación (cbc:InvoiceTypeCode/@listID). Subconjunto aplicable a ABC.",
+      "type": "string",
+      "oneOf": [
+        { "const": "0101", "title": "Venta interna" },
+        { "const": "0112", "title": "Venta interna - Sustenta gastos deducibles persona natural" },
+        { "const": "0200", "title": "Exportación de bienes" },
+        { "const": "0401", "title": "Ventas a no domiciliados que no califican como exportación" },
+        { "const": "1001", "title": "Operación sujeta a detracción" },
+        { "const": "2001", "title": "Operación sujeta a percepción" }
+      ]
+    },
+    "Cat52Leyenda": {
+      "description": "Catálogo N.° 52 - Código de leyenda (cbc:Note/@languageLocaleID). Subconjunto.",
+      "type": "string",
+      "oneOf": [
+        { "const": "1000", "title": "Monto en letras" },
+        { "const": "1002", "title": "TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE" },
+        { "const": "2000", "title": "COMPROBANTE DE PERCEPCIÓN" },
+        { "const": "2001", "title": "BIENES TRANSFERIDOS EN LA AMAZONÍA REGIÓN SELVA PARA SER CONSUMIDOS EN LA MISMA" },
+        { "const": "2006", "title": "Operación sujeta a detracción" }
+      ]
+    },
+    "Cat53CargoDescuento": {
+      "description": "Catálogo N.° 53 - Códigos de cargos o descuentos (cbc:AllowanceChargeReasonCode). Subconjunto.",
+      "type": "string",
+      "oneOf": [
+        { "const": "00", "title": "Descuentos que afectan la base imponible del IGV/IVAP (ítem)" },
+        { "const": "01", "title": "Descuentos que no afectan la base imponible del IGV/IVAP (ítem)" },
+        { "const": "02", "title": "Descuentos globales que afectan la base imponible del IGV/IVAP" },
+        { "const": "03", "title": "Descuentos globales que no afectan la base imponible del IGV/IVAP" },
+        { "const": "47", "title": "Cargos que afectan la base imponible del IGV/IVAP (ítem)" },
+        { "const": "48", "title": "Cargos que no afectan la base imponible del IGV/IVAP (ítem)" },
+        { "const": "49", "title": "Cargos globales que afectan la base imponible del IGV/IVAP" },
+        { "const": "50", "title": "Cargos globales que no afectan la base imponible del IGV/IVAP" },
+        { "const": "51", "title": "Percepción venta interna" }
+      ]
+    },
+    "Cat53DescuentoItem": {
+      "type": "string",
+      "enum": ["00", "01", "47", "48"]
+    },
+    "Cat53CargoDescuentoGlobal": {
+      "type": "string",
+      "enum": ["02", "03", "49", "50"]
+    },
+    "Cat54BienServicioDetraccion": {
+      "description": "Catálogo N.° 54 - Bienes y servicios sujetos a detracción. Se valida contra los datos versionados del módulo tributacion.",
+      "type": "string",
+      "pattern": "^\\d{3}$"
+    },
+    "Cat59MedioPago": {
+      "description": "Catálogo N.° 59 - Medio de pago (cbc:PaymentMeansCode). El sistema solo usa 001 para el depósito de detracciones; el catálogo completo vive en la base de datos.",
+      "type": "string",
+      "oneOf": [
+        { "const": "001", "title": "Depósito en cuenta" }
+      ]
+    },
+    "Tabla2TipoDocumentoIdentidad": {
+      "description": "RS 234-2006/SUNAT, Tabla 2 (Registro de Ventas, Formato 14.1).",
+      "type": "string",
+      "oneOf": [
+        { "const": "0", "title": "Otros tipos de documentos" },
+        { "const": "1", "title": "Documento nacional de identidad (DNI)" },
+        { "const": "4", "title": "Carné de extranjería" },
+        { "const": "6", "title": "Registro único de contribuyentes" },
+        { "const": "7", "title": "Pasaporte" },
+        { "const": "A", "title": "Cédula diplomática de identidad" }
+      ]
+    },
+    "Tabla5TipoExistencia": {
+      "description": "RS 234-2006/SUNAT, Tabla 5 - Tipo de existencia (Formato 12.1).",
+      "type": "string",
+      "oneOf": [
+        { "const": "01", "title": "Mercadería" },
+        { "const": "02", "title": "Producto terminado" },
+        { "const": "03", "title": "Materias primas y auxiliares - materiales" },
+        { "const": "04", "title": "Envases y embalajes" },
+        { "const": "05", "title": "Suministros diversos" },
+        { "const": "99", "title": "Otros (especificar)" }
+      ]
+    },
+    "Tabla6UnidadMedida": {
+      "description": "RS 234-2006/SUNAT, Tabla 6 - Código de la unidad de medida (Formato 12.1). Se deriva del Catálogo N.° 03 mediante tabla de equivalencias.",
+      "type": "string",
+      "oneOf": [
+        { "const": "01", "title": "Kilogramos" },
+        { "const": "02", "title": "Libras" },
+        { "const": "03", "title": "Toneladas largas" },
+        { "const": "04", "title": "Toneladas métricas" },
+        { "const": "05", "title": "Toneladas cortas" },
+        { "const": "06", "title": "Gramos" },
+        { "const": "07", "title": "Unidades" },
+        { "const": "08", "title": "Litros" },
+        { "const": "09", "title": "Galones" },
+        { "const": "10", "title": "Barriles" },
+        { "const": "11", "title": "Latas" },
+        { "const": "12", "title": "Cajas" },
+        { "const": "13", "title": "Millares" },
+        { "const": "14", "title": "Metros cúbicos" },
+        { "const": "15", "title": "Metros" },
+        { "const": "99", "title": "Otros (especificar)" }
+      ]
+    },
+    "Tabla10TipoDocumento": {
+      "description": "RS 234-2006/SUNAT, Tabla 10 - Tipo de comprobante de pago o documento (documento de soporte del movimiento de inventario). Subconjunto.",
+      "type": "string",
+      "oneOf": [
+        { "const": "00", "title": "Otros (documento interno)" },
+        { "const": "01", "title": "Factura" },
+        { "const": "03", "title": "Boleta de venta" },
+        { "const": "07", "title": "Nota de crédito" },
+        { "const": "08", "title": "Nota de débito" },
+        { "const": "09", "title": "Guía de remisión - remitente" },
+        { "const": "12", "title": "Ticket o cinta emitido por máquina registradora" },
+        { "const": "31", "title": "Guía de remisión - transportista" }
+      ]
+    },
+    "Tabla12TipoOperacion": {
+      "description": "RS 234-2006/SUNAT, Tabla 12 - Tipo de operación del inventario (Formato 12.1).",
+      "type": "string",
+      "oneOf": [
+        { "const": "01", "title": "Venta" },
+        { "const": "02", "title": "Compra" },
+        { "const": "03", "title": "Consignación recibida" },
+        { "const": "04", "title": "Consignación entregada" },
+        { "const": "05", "title": "Devolución recibida" },
+        { "const": "06", "title": "Devolución entregada" },
+        { "const": "07", "title": "Promoción" },
+        { "const": "08", "title": "Premio" },
+        { "const": "09", "title": "Donación" },
+        { "const": "10", "title": "Salida a producción" },
+        { "const": "11", "title": "Transferencia entre almacenes" },
+        { "const": "12", "title": "Retiro" },
+        { "const": "13", "title": "Mermas" },
+        { "const": "14", "title": "Desmedros" },
+        { "const": "15", "title": "Destrucción" },
+        { "const": "16", "title": "Saldo inicial" },
+        { "const": "99", "title": "Otros (especificar)" }
+      ]
+    }
+  }
+}

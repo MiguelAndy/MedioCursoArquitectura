@@ -1,0 +1,40 @@
+flowchart LR
+  CAJ["«actor»<br/>Cajero"]
+  VEN["«actor»<br/>Vendedor mayorista"]
+  CON["«actor»<br/>Contador"]
+  PLA["«actor»<br/>Planificador"]
+  OSE["«actor externo»<br/>OSE / SUNAT"]
+  CLI["«actor externo»<br/>Cliente"]
+  subgraph VENTAS["Ventas y comprobantes electrónicos"]
+    direction TB
+    CU01(["CU-01 Emitir factura"])
+    CU02(["CU-02 Emitir boleta"])
+    CU03(["CU-03 Emitir nota de crédito"])
+    CU04(["CU-04 Emitir nota de débito"])
+    CU05(["CU-05 Anular por comunicación de baja"])
+    CU06(["CU-06 Enviar resumen diario"])
+    CU07(["CU-07 Enviar y procesar CDR"])
+    CU08(["CU-08 Consultar estado en SUNAT/OSE"])
+    CU09(["CU-09 Entregar representación impresa y XML"])
+    CU10(["CU-10 Consultar comprobantes"])
+    CU22(["CU-22 Vigilar plazos y certificado"])
+  end
+  VEN --> CU01
+  CAJ --> CU02
+  CAJ --> CU09
+  VEN --> CU09
+  CON --> CU03
+  CON --> CU04
+  CON --> CU05
+  CON --> CU10
+  CON --> CU08
+  PLA --> CU06
+  PLA --> CU07
+  PLA --> CU22
+  CU07 --> OSE
+  CU06 --> OSE
+  CU05 --> OSE
+  CU08 --> OSE
+  CU09 --> CLI
+  CU01 -. "«include»" .-> CU07
+  CU02 -. "«include»" .-> CU09

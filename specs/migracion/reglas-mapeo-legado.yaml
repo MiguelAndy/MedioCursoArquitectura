@@ -1,0 +1,90 @@
+# Reglas declarativas de migración del legado (versión inmutable por lote: LoteMigracion.versionReglas).
+# El motor de migración las interpreta; cambiar una regla = publicar una nueva versión, nunca editar la anterior.
+version: 1.0.0
+origen:
+  campos: [fecha, ingreso, salida, producto, nro_documento]
+  destino: inventario.MovimientoInventario (Formato 12.1, RS 234-2006/SUNAT)
+
+reglas:
+  MIG-01:
+    nombre: Fecha
+    formatos_aceptados: ["dd/MM/yyyy", "yyyy-MM-dd", "dd-MM-yy", "dd-MM-yyyy", "dd.MM.yyyy"]
+    anio_dos_digitos: "20yy"
+    si_invalida: OBSERVADO        # p. ej. 31/09/2025
+    si_posterior_a_fecha_corte: RECHAZADO
+  MIG-02:
+    nombre: Cantidades (ingreso / salida)
+    normalizar: {separador_decimal: [",", "."], quitar_separador_miles: true, vacio_es_cero: true}
+    casos:
+      - {condicion: "ingreso > 0 y salida = 0", resultado: ENTRADA}
+      - {condicion: "salida > 0 y ingreso = 0", resultado: SALIDA}
+      - {condicion: "ingreso > 0 y salida > 0", resultado: OBSERVADO, motivo: "posible doble registro; puede dividirse en dos movimientos"}
+      - {condicion: "ingreso = 0 y salida = 0", resultado: RECHAZADO, motivo: "no representa movimiento"}
+      - {condicion: "cantidad negativa", resultado: OBSERVADO}
+  MIG-03:
+    nombre: Producto (texto libre -> maestro)
+    normalizar: [mayusculas, quitar_tildes, colapsar_espacios, quitar_puntuacion_final]
+    sinonimos:            # diccionario versionado, ampliable tras el perfilado
+      "EVAP.": EVAPORADA
+      "EVAP": EVAPORADA
+      "LAT": LATAS
+      "CJ": CAJA
+      "VEG": VEGETAL
+      "SPAGUETTI": SPAGHETTI
+      "X48": "X 48"
+    coincidencia:
+      exacta: MIGRADO
+      similitud_jaro_winkler_minima: 0.92     # propuesta automática
+      con_similitud: MIGRADO_CON_SUPUESTOS
+      sin_coincidencia: OBSERVADO               # crear producto o mapear manualmente (CU-18)
+  MIG-04:
+    nombre: nro_documento (texto informal -> Tabla 10 + serie + número)
+    conservar_texto_original: true              # DocumentoSoporte.textoOriginal
+    patrones:                                   # se evalúan en orden; el primero que coincide gana
+      - {id: P1, regex: '^(?<letra>[FB])(?<serie>[A-Z0-9]{3})-?0*(?<numero>\d{1,8})$', tabla10: "01 si letra=F; 03 si letra=B", serie: "letra+serie"}
+      - {id: P2, regex: '^(FACT(URA)?|FAC|F)\.?\s*0*(?<serie>\d{1,4})-0*(?<numero>\d{1,8})$', tabla10: "01", serie: "serie con ceros a 4 dígitos"}
+      - {id: P3, regex: '^(BOL(ETA)?|BV|B)\.?\s*0*(?<serie>\d{1,4})-0*(?<numero>\d{1,8})$', tabla10: "03", serie: "serie con ceros a 4 dígitos"}
+      - {id: P4, regex: '^(GR|GUIA|GUÍA|G/R)\.?\s*(?<serie>[A-Z0-9]{1,4})-0*(?<numero>\d{1,8})$', tabla10: "09", serie: "serie"}
+      - {id: P5, regex: '^(NC|N/C)\.?\s*(?<serie>[A-Z0-9]{1,4})-0*(?<numero>\d{1,8})$', tabla10: "07", serie: "serie"}
+      - {id: P6, regex: '^(S/?N|-)?$', tabla10: "00", numero: "SN-{idLegado}", estado: MIGRADO_CON_SUPUESTOS}
+    sin_patron: {tabla10: "00", numero: "texto original (máx. 20)", estado: OBSERVADO}
+  MIG-05:
+    nombre: Tipo de operación (Tabla 12) inferido
+    casos:
+      - {si: "ENTRADA y documento 01/09 de proveedor", tabla12: "02"}      # Compra
+      - {si: "SALIDA y documento 01/03", tabla12: "01"}                    # Venta
+      - {si: "SALIDA y documento 09", tabla12: "01", estado: MIGRADO_CON_SUPUESTOS}
+      - {si: "texto contiene MERMA", tabla12: "13"}
+      - {si: "texto contiene DEV y ENTRADA", tabla12: "05"}
+      - {si: "texto contiene DEV y SALIDA", tabla12: "06"}
+      - {si: "sin documento", tabla12: "99", estado: OBSERVADO}
+  MIG-06:
+    nombre: Duplicados
+    misma_ficha_mismo_hash_en_el_lote: RECHAZADO     # idempotencia del reproceso
+    misma_fecha_producto_cantidad_documento: OBSERVADO
+  MIG-07:
+    nombre: Valores por defecto del Formato 12.1
+    tipo_existencia_tabla5: "01"     # Mercadería
+    unidad_medida_tabla6: "07"       # Unidades (Cat. 03 = NIU)
+    estado: MIGRADO_CON_SUPUESTOS
+  MIG-08:
+    nombre: Saldo inicial al corte
+    descripcion: "Por producto: saldo = Σ entradas − Σ salidas válidas hasta la fecha de corte; se crea un movimiento Tabla 12 = 16 (Saldo inicial) con fecha de corte + 1. La historia previa queda como movimientos MIGRACION de solo consulta."
+  MIG-09:
+    nombre: Condición de confirmación
+    requiere: ["0 registros OBSERVADO pendientes", "conciliación conforme", "aprobación de GERENTE y CONTADOR"]
+  MIG-10:
+    nombre: Conciliación
+    controles:
+      CTL-01: "total = migrados + migrados con supuestos + rechazados (observados = 0)"
+      CTL-02: "por producto: Σ ingreso − Σ salida del legado = saldo inicial creado"
+      CTL-03: "suma de control de cantidades de entrada y salida: origen = destino"
+      CTL-04: "SHA-256 del archivo = hash registrado al cargar"
+      CTL-05: "muestra aleatoria del 5 % revisada y firmada por el contador"
+  MIG-11:
+    nombre: Linaje
+    registro: [idLegado, loteId, hashRegistro, entidadDestino, idDestino, reglasAplicadas, versionReglas, resolucionManual, migradoEn, migradoPor]
+    politica: append-only
+  MIG-12:
+    nombre: Reproceso y reversión
+    reglas: ["un archivo con el mismo hash no se carga dos veces", "un lote CONFIRMADO no se edita", "la reversión solo procede antes de la puesta en producción y deja linaje"]

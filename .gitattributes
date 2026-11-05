@@ -1,0 +1,3 @@
+# Scripts del Maven Wrapper del servidor con el fin de línea correcto
+servidor/mvnw text eol=lf
+servidor/mvnw.cmd text eol=crlf

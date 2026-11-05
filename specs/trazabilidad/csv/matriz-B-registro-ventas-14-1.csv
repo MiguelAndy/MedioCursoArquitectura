@@ -1,0 +1,21 @@
+﻿ID,Columna del Formato 14.1 / RVIE,Tabla,Origen en UBL 2.1,Campo DTO (LineaRegistroVentas)
+TR-B01,Número correlativo del registro o CUO,,(lo genera el módulo registros),cuo
+TR-B02,Fecha de emisión del comprobante,,/Invoice/cbc:IssueDate,fechaEmision
+TR-B03,Fecha de vencimiento y/o pago,,/Invoice/cbc:DueDate (o la PaymentDueDate de la última cuota),fechaVencimiento
+TR-B04,Tipo de comprobante de pago,Tabla 10,"/Invoice/cbc:InvoiceTypeCode (01, 03); raíz CreditNote = 07; DebitNote = 08",tipoComprobante
+TR-B05,Número de serie,,"substring-before(/Invoice/cbc:ID, '-')",serie
+TR-B06,Número del comprobante,,"substring-after(/Invoice/cbc:ID, '-')",numero
+TR-B07,Tipo de documento de identidad del cliente,Tabla 2,"/Invoice/cac:AccountingCustomerParty/cac:Party/cac:PartyIdentification/cbc:ID/@schemeID (Cat. 06; códigos 0, 1, 4, 6, 7 y A coinciden con la Tabla 2)",tipoDocumentoCliente
+TR-B08,Número de documento del cliente,,/Invoice/cac:AccountingCustomerParty/cac:Party/cac:PartyIdentification/cbc:ID,numeroDocumentoCliente
+TR-B09,"Apellidos y nombres, denominación o razón social",,/Invoice/cac:AccountingCustomerParty/cac:Party/cac:PartyLegalEntity/cbc:RegistrationName,razonSocialCliente
+TR-B10,Valor facturado de la exportación,,TaxSubtotal 9995 / cbc:TaxableAmount,valorExportacion
+TR-B11,Base imponible de la operación gravada,,TaxSubtotal 1000 / cbc:TaxableAmount,baseImponibleGravada
+TR-B12,Importe total de la operación exonerada,,TaxSubtotal 9997 / cbc:TaxableAmount,importeExonerado
+TR-B13,Importe total de la operación inafecta,,TaxSubtotal 9998 / cbc:TaxableAmount,importeInafecto
+TR-B14,ISC,,TaxSubtotal 2000 / cbc:TaxAmount,isc
+TR-B15,IGV y/o IPM,,TaxSubtotal 1000 / cbc:TaxAmount,igv
+TR-B16,ICBPER (columna incorporada posteriormente en PLE / RVIE),,TaxSubtotal 7152 / cbc:TaxAmount,icbper
+TR-B17,Otros tributos y cargos que no forman parte de la base imponible,,TaxSubtotal 9999 / cbc:TaxAmount + LegalMonetaryTotal/cbc:ChargeTotalAmount,otrosTributos
+TR-B18,Importe total del comprobante,,/Invoice/cac:LegalMonetaryTotal/cbc:PayableAmount,importeTotal
+TR-B19,Tipo de cambio,,(no se informa en el XML de venta interna; proviene del comprobante: tipoCambio),tipoCambio
+TR-B20,"Referencia del comprobante modificado: fecha, tipo, serie y número",Tabla 10,/CreditNote/cac:BillingReference/cac:InvoiceDocumentReference/cbc:ID y cbc:DocumentTypeCode,"referencia.fecha, .tipo, .serie, .numero"

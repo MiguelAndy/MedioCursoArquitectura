@@ -1,0 +1,24 @@
+flowchart LR
+  subgraph F1["Fase 1 · Monolito modular MVC"]
+    M1["Un solo desplegable<br/>módulos con puertos y eventos internos<br/>una BD, un esquema por módulo"]
+  end
+  subgraph F2["Fase 2 · Hexagonal estricta"]
+    M2["Módulos de compilación separados<br/>dominio · aplicación · adaptadores<br/>misma topología de despliegue"]
+  end
+  subgraph F3["Fase 3 · Microservicios (patrón estrangulador)"]
+    GW["API Gateway<br/>mismo OpenAPI /api/v1"]
+    S1["cpe-service"]
+    S2["facturacion-service"]
+    S3["inventario-service"]
+    S4["catalogo-service"]
+    BR[("Broker de eventos<br/>mismo AsyncAPI")]
+    GW --> S2
+    GW --> S3
+    GW --> S4
+    S1 <--> BR
+    S2 <--> BR
+    S3 <--> BR
+    S4 <--> BR
+  end
+  F1 -- "mover paquetes a módulos,<br/>sin reescribir el dominio" --> F2
+  F2 -- "extraer primero cpe:<br/>I/O intensivo y alta disponibilidad" --> F3

@@ -1,0 +1,18 @@
+﻿ID,Columna del Formato 12.1,Tabla,Entidad / atributo,Campo del legado,Regla
+TR-C01,Periodo,,MovimientoInventario.fecha (AAAA-MM),fecha,MIG-01
+TR-C02,RUC,,Empresa.ruc,—,
+TR-C03,"Apellidos y nombres, denominación o razón social",,Empresa.razonSocial,—,
+TR-C04,Establecimiento,,Almacen.codigoEstablecimiento,(parámetro del lote: almacenId),
+TR-C05,Código de la existencia,,Producto.codigo,producto,MIG-03
+TR-C06,Tipo de existencia,Tabla 5,Producto.tipoExistencia,— (por defecto 01 Mercadería),MIG-07
+TR-C07,Descripción,,Producto.descripcion,producto,MIG-03
+TR-C08,Código de la unidad de medida,Tabla 6,Producto.unidadBase (Cat. 03 → Tabla 6),— (por defecto 07 Unidades),MIG-07
+TR-C09,Fecha del documento,,MovimientoInventario.fecha,fecha,MIG-01
+TR-C10,"Tipo de documento de traslado, comprobante o documento interno",Tabla 10,DocumentoSoporte.tipo,nro_documento,MIG-04
+TR-C11,Serie,,DocumentoSoporte.serie,nro_documento,MIG-04
+TR-C12,Número,,DocumentoSoporte.numero (+ textoOriginal),nro_documento,MIG-04
+TR-C13,Tipo de operación,Tabla 12,MovimientoInventario.tipoOperacion,(inferido de ingreso/salida y del documento),MIG-05
+TR-C14,Entradas,,MovimientoInventario.entrada,ingreso,MIG-02
+TR-C15,Salidas,,MovimientoInventario.salida,salida,MIG-02
+TR-C16,Saldo final,,MovimientoInventario.saldoFinal,(calculado y conciliado),MIG-10
+TR-C17,"(trazabilidad, no forma parte del formato)",,"Linaje (idLegado, hashRegistro, reglas, versión)",idLegado (clave u archivo#hoja#fila),MIG-11

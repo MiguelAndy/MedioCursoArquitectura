@@ -1,0 +1,13 @@
+flowchart LR
+  L[("Legado<br/>fecha · ingreso · salida<br/>producto · nro_documento")] -- "exportar" --> E["1. Extraer<br/>copia íntegra a staging<br/>+ SHA-256 por ficha"]
+  E --> P["2. Perfilar<br/>nulos · formatos · duplicados"]
+  P --> T["3. Transformar<br/>reglas MIG-01 a MIG-08"]
+  T --> Q{"¿Hay registros<br/>observados?"}
+  Q -- "sí" --> RV["4. Revisión humana<br/>PATCH /migraciones/registros"]
+  RV --> T
+  Q -- "no" --> CO["5. Conciliar<br/>controles CTL-01 a CTL-05"]
+  CO --> OK{"¿Conforme?"}
+  OK -- "no" --> RV
+  OK -- "sí" --> CF["6. Confirmar<br/>saldos iniciales (Tabla 12 = 16)<br/>y movimientos"]
+  CF --> LN[("Linaje inmutable<br/>idLegado ↔ idDestino")]
+  CF --> K[("Kardex nuevo<br/>Formato 12.1")]

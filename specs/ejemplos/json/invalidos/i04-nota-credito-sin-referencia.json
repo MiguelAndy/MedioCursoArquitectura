@@ -1,0 +1,8 @@
+{
+  "tipoComprobante": "07",
+  "serie": "FC01",
+  "moneda": "PEN",
+  "items": [
+    { "descripcion": "ACEITE VEGETAL CAJA X 12 BOTELLAS 1 L", "unidadMedida": "BX", "cantidad": "1", "valorUnitario": "85.00", "tipoAfectacionIgv": "10" }
+  ]
+}

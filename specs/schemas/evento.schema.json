@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Eventos de dominio",
+  "description": "Sobre CloudEvents 1.0 y cargas de los eventos que intercambian los módulos. En el monolito viajan por el bus interno con registro de publicación (outbox); al extraer microservicios, los mismos contratos viajan por un broker (ver specs/asyncapi). Son la costura que permite separar módulos sin reescribirlos.",
+  "$defs": {
+    "Sobre": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["specversion", "id", "source", "type", "time", "datacontenttype", "data"],
+      "properties": {
+        "specversion": { "const": "1.0" },
+        "id": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "source": { "type": "string", "examples": ["/abc-comercial/facturacion"] },
+        "type": { "type": "string", "pattern": "^pe\\.abc\\.[a-z]+\\.[a-z-]+\\.[a-z-]+\\.v\\d+$" },
+        "subject": { "type": "string", "examples": ["F001-1"] },
+        "time": { "$ref": "comun.schema.json#/$defs/FechaHora" },
+        "datacontenttype": { "const": "application/json" },
+        "correlationid": { "type": "string" },
+        "data": { "type": "object" }
+      }
+    },
+    "ComprobanteEmitido": {
+      "type": "object",
+      "description": "pe.abc.facturacion.comprobante.emitido.v1 - lo consumen cpe (envío), inventario (descarga de stock), registros (Registro de Ventas) y notificaciones.",
+      "additionalProperties": false,
+      "required": ["comprobanteId", "tipoComprobante", "numero", "fechaEmision", "moneda", "importeTotal", "items"],
+      "properties": {
+        "comprobanteId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "tipoComprobante": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat01ComprobanteEmitible" },
+        "numero": { "$ref": "comun.schema.json#/$defs/NumeroComprobante" },
+        "fechaEmision": { "$ref": "comun.schema.json#/$defs/Fecha" },
+        "moneda": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat02Moneda" },
+        "importeTotal": { "$ref": "comun.schema.json#/$defs/Importe" },
+        "almacenId": { "type": "string" },
+        "documentoReferencia": { "$ref": "comprobante-emision.request.schema.json#/$defs/DocumentoReferencia" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["productoId", "cantidad", "unidadMedida"],
+            "properties": {
+              "productoId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+              "cantidad": { "$ref": "comun.schema.json#/$defs/Cantidad" },
+              "unidadMedida": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat03UnidadMedida" },
+              "esGratuito": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "ResultadoSunat": {
+      "type": "object",
+      "description": "pe.abc.cpe.comprobante.aceptado.v1 | .observado.v1 | .rechazado.v1 | .excepcion.v1",
+      "additionalProperties": false,
+      "required": ["comprobanteId", "numero", "estado", "respuesta"],
+      "properties": {
+        "comprobanteId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "numero": { "$ref": "comun.schema.json#/$defs/NumeroComprobante" },
+        "estado": { "$ref": "comprobante.response.schema.json#/$defs/EstadoComprobante" },
+        "respuesta": { "$ref": "comprobante.response.schema.json#/$defs/RespuestaSunat" }
+      }
+    },
+    "ComprobanteAnulado": {
+      "type": "object",
+      "description": "pe.abc.cpe.comprobante.anulado.v1",
+      "additionalProperties": false,
+      "required": ["comprobanteId", "numero", "via"],
+      "properties": {
+        "comprobanteId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "numero": { "$ref": "comun.schema.json#/$defs/NumeroComprobante" },
+        "via": { "type": "string", "enum": ["COMUNICACION_BAJA", "RESUMEN_DIARIO"] },
+        "identificadorResumen": { "type": "string" }
+      }
+    },
+    "MovimientoRegistrado": {
+      "type": "object",
+      "description": "pe.abc.inventario.movimiento.registrado.v1",
+      "additionalProperties": false,
+      "required": ["movimientoId", "productoId", "almacenId", "tipoOperacion", "saldoFinal"],
+      "properties": {
+        "movimientoId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "productoId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "almacenId": { "type": "string" },
+        "tipoOperacion": { "$ref": "catalogos-sunat.schema.json#/$defs/Tabla12TipoOperacion" },
+        "saldoFinal": { "type": "string" },
+        "origen": { "type": "string" }
+      }
+    },
+    "LoteMigracionConfirmado": {
+      "type": "object",
+      "description": "pe.abc.migracion.lote.confirmado.v1",
+      "additionalProperties": false,
+      "required": ["loteId", "movimientosCreados", "hashArchivo"],
+      "properties": {
+        "loteId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "movimientosCreados": { "type": "integer", "minimum": 0 },
+        "productosCreados": { "type": "integer", "minimum": 0 },
+        "hashArchivo": { "type": "string" }
+      }
+    },
+    "CertificadoPorVencer": {
+      "type": "object",
+      "description": "pe.abc.cpe.certificado.por-vencer.v1 (alerta 30, 15 y 7 días antes).",
+      "additionalProperties": false,
+      "required": ["huella", "vigenteHasta", "diasRestantes"],
+      "properties": {
+        "huella": { "type": "string" },
+        "vigenteHasta": { "$ref": "comun.schema.json#/$defs/Fecha" },
+        "diasRestantes": { "type": "integer" }
+      }
+    }
+  }
+}

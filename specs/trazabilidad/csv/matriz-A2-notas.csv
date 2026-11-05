@@ -1,0 +1,10 @@
+﻿ID,Dato SUNAT,Cond.,Catálogo,Elemento UBL 2.1 (XPath),Card. XSD,¿Oblig. en XSD?,Ruta de cardinalidades (XSD OASIS),Campo DTO,Reglas
+TR-N01,Serie y número de la nota (letra según el comprobante modificado),M,,/CreditNote/cbc:ID,1..1,sí,ID 1..1,serie; numero,"VAL-NUM-01, VAL-NUM-03"
+TR-N02,Tipo de nota de crédito (motivo),M,09,/CreditNote/cac:DiscrepancyResponse/cbc:ResponseCode,0..1 ▲,no,DiscrepancyResponse 0..n › ResponseCode 0..1,documentoReferencia.motivo,VAL-NOT-03
+TR-N03,Sustento del motivo,M,,/CreditNote/cac:DiscrepancyResponse/cbc:Description,0..n ▲,no,DiscrepancyResponse 0..n › Description 0..n,documentoReferencia.sustento,VAL-NOT-03
+TR-N04,Serie y número del comprobante que se modifica,M,,/CreditNote/cac:BillingReference/cac:InvoiceDocumentReference/cbc:ID (y DiscrepancyResponse/cbc:ReferenceID),1..1 ▲,no,BillingReference 0..n › InvoiceDocumentReference 0..1 › ID 1..1,documentoReferencia.numero,"VAL-NOT-01, VAL-NOT-02"
+TR-N05,Tipo del comprobante que se modifica,M,01,/CreditNote/cac:BillingReference/cac:InvoiceDocumentReference/cbc:DocumentTypeCode,0..1 ▲,no,BillingReference 0..n › InvoiceDocumentReference 0..1 › DocumentTypeCode 0..1,documentoReferencia.tipoComprobante,"VAL-NOT-02, VAL-NOT-04"
+TR-N06,Cantidad acreditada por ítem,M,03,/CreditNote/cac:CreditNoteLine/cbc:CreditedQuantity/@unitCode,0..1 ▲,no,CreditNoteLine 1..n › CreditedQuantity 0..1,"items[].cantidad, items[].unidadMedida","VAL-NOT-05, VAL-NOT-06"
+TR-N07,Importe total de la nota de crédito,M,,/CreditNote/cac:LegalMonetaryTotal/cbc:PayableAmount,1..1,sí,LegalMonetaryTotal 1..1 › PayableAmount 1..1,totales.importeTotal,VAL-NOT-05
+TR-N08,Tipo de nota de débito (motivo),M,10,/DebitNote/cac:DiscrepancyResponse/cbc:ResponseCode,0..1 ▲,no,DiscrepancyResponse 0..n › ResponseCode 0..1,documentoReferencia.motivo,VAL-NOT-03
+TR-N09,Importe total de la nota de débito,M,,/DebitNote/cac:RequestedMonetaryTotal/cbc:PayableAmount,1..1,sí,RequestedMonetaryTotal 1..1 › PayableAmount 1..1,totales.importeTotal,VAL-TOT-04

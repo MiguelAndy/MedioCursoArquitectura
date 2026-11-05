@@ -1,0 +1,11 @@
+{
+  "tipoComprobante": "01",
+  "serie": "F001",
+  "tipoOperacion": "0101",
+  "moneda": "USD",
+  "cliente": { "tipoDocumento": "6", "numeroDocumento": "20456789120", "razonSocial": "DISTRIBUIDORA SANTA ROSA DEL HUALLAGA E.I.R.L." },
+  "items": [
+    { "descripcion": "ACEITE VEGETAL CAJA X 12 BOTELLAS 1 L", "unidadMedida": "BX", "cantidad": "1", "valorUnitario": "23.00", "tipoAfectacionIgv": "10" }
+  ],
+  "formaPago": { "tipo": "CONTADO" }
+}

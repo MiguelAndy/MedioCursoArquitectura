@@ -1,0 +1,38 @@
+[
+  {
+    "idLegado": "kardex.xlsx#2025#145",
+    "fecha": "03/09/2025",
+    "ingreso": "120",
+    "salida": null,
+    "producto": "LECHE EVAP. X 48 LAT",
+    "nroDocumento": "FACT 001-4587",
+    "fuente": { "archivo": "kardex.xlsx", "hoja": "2025", "fila": 145 }
+  },
+  {
+    "idLegado": "kardex.xlsx#2025#146",
+    "fecha": "2025-09-04",
+    "ingreso": "",
+    "salida": "15",
+    "producto": "Leche evaporada caja 48",
+    "nroDocumento": "B001-0000231",
+    "fuente": { "archivo": "kardex.xlsx", "hoja": "2025", "fila": 146 }
+  },
+  {
+    "idLegado": "kardex.xlsx#2025#147",
+    "fecha": "05-09-25",
+    "ingreso": "0",
+    "salida": "3",
+    "producto": "ACEITE VEG CJ12",
+    "nroDocumento": "s/n",
+    "fuente": { "archivo": "kardex.xlsx", "hoja": "2025", "fila": 147 }
+  },
+  {
+    "idLegado": "kardex.xlsx#2025#148",
+    "fecha": "31/09/2025",
+    "ingreso": "10",
+    "salida": "10",
+    "producto": "FIDEOS SPAGUETTI CJ 20",
+    "nroDocumento": "GUIA 0002-781",
+    "fuente": { "archivo": "kardex.xlsx", "hoja": "2025", "fila": 148 }
+  }
+]

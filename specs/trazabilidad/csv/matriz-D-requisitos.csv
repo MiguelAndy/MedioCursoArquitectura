@@ -1,0 +1,20 @@
+﻿Requisito,Descripción,Artefactos,Verificación
+REQ-01,"Emitir CPE en UBL 2.1 (factura, boleta y notas)",docs/05; specs/schemas/comprobante-*.json; specs/ubl/ejemplos (4 XML),XSD OASIS + cuadres (validar_specs.py)
+REQ-02,Registros formales (14.1 / RVIE y 12.1),Matrices B y C; GET /registros/*; inventario.schema.json (KardexFormato121),Revisión de columnas contra los formatos oficiales
+REQ-03,Validar RUC,VAL-ID-01 a 04; GET /consultas/ruc/{ruc}; ConsultaContribuyentePort,TC-03; contraejemplo i02
+REQ-04,"Calcular IGV, ISC (Cat. 08) e ICBPER","docs/04, sección 4.3; VAL-TRB-*; ejemplos F001-2 y B001-1",TC-07 a TC-09; cuadres de los XML
+REQ-05,XML firmado digitalmente,FirmadorXmlPort; tools/conformidad/FirmarXmlPrueba.java; ejemplos firmados,"Firma verificada + XSD (ds:Signature, lax)"
+REQ-06,Comunicación con OSE o SUNAT,"docs/07, sección 7.6; CanalEnvioCpePort; estados (Figura 4.1)",Pruebas en el ambiente beta (fase de implementación)
+REQ-07,Spec-First y estudio del UBL-Invoice-2.1.xsd,"specs/ (contratos primero); docs/02, Tabla 2.2; esta matriz con cardinalidades del XSD",validar_specs.py en verde antes de programar
+REQ-08,Migración del legado con trazabilidad,docs/09; migracion.schema.json; /migraciones/*; Matriz C,Controles CTL-01 a CTL-05; linaje
+REQ-09,"Catálogos, series, correlativos y validaciones (Catálogo 8)","catalogos-sunat.schema.json; VAL-NUM-*; docs/02, sección 2.5","Contraejemplos i01, i06; TC-12"
+REQ-10,MVC con visión hexagonal y microservicios,docs/06; x-puerto-entrada en el OpenAPI; AsyncAPI; reglas ArchUnit,ArchUnit / Spring Modulith en CI
+REQ-11,Nativo en Windows y Android; MSI y APK,"docs/06, sección 6.8 (Tabla 6.4); ADR-03",Pipeline de empaquetado (packageMsi / assembleRelease)
+REQ-12,Casos de uso con opiniones de usuarios y benchmark,"docs/03 (benchmark, PU-01 a PU-12, guion DEMO, CU-01 a CU-32)",Ejecución del guion DEMO por el equipo
+REQ-13,Modelo de dominio y contratos,docs/05; specs/schemas (11 contratos),Metaesquema + ejemplos
+REQ-14,Diagramas MVC con visión hexagonal,"docs/06, Figuras 6.1 a 6.8; diagramas/fuentes",Revisión de arquitectura
+REQ-15,Endpoints y servicios (contratos API),specs/openapi (50 operaciones); docs/07,openapi-spec-validator + Redocly
+REQ-16,Matriz de trazabilidad normativa SUNAT ↔ UBL,docs/08; matriz-trazabilidad.xlsx; csv/,Cardinalidades calculadas del XSD oficial
+REQ-17,Venta mayorista y minorista,"producto.schema.json (Presentacion, Precio); FormaPago; bonificaciones",Ejemplos F001-1 y B001-1
+REQ-18,Inventario integrado a la facturación,Evento ComprobanteEmitido; VAL-INV-03; inventario.schema.json,TC-16; AsyncAPI
+REQ-19,"Continuidad ante caídas de internet, OSE o SUNAT",ADR-05; outbox; reintentos; contingencia (RS 000049-2026),Prueba de desconexión controlada

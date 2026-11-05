@@ -1,0 +1,168 @@
+{
+  "id": "3f6c2a7e-1b0d-4c55-9a1e-6d2f0b8c4e11",
+  "tipoComprobante": "01",
+  "serie": "F001",
+  "correlativo": 1,
+  "numero": "F001-1",
+  "fechaEmision": "2026-10-22",
+  "horaEmision": "10:30:00",
+  "fechaVencimiento": "2026-12-21",
+  "tipoOperacion": "0101",
+  "moneda": "PEN",
+  "emisor": {
+    "ruc": "20123456786",
+    "razonSocial": "ABC SOFTWARE CORP S.A.C.",
+    "nombreComercial": "ABC ABARROTES",
+    "codigoEstablecimiento": "0000",
+    "direccion": "JR. COMERCIO 123, HUANUCO",
+    "ubigeo": "100101"
+  },
+  "cliente": {
+    "tipoDocumento": "6",
+    "numeroDocumento": "20456789120",
+    "razonSocial": "DISTRIBUIDORA SANTA ROSA DEL HUALLAGA E.I.R.L.",
+    "direccion": "JR. HUALLAGA 456, TINGO MARIA",
+    "ubigeo": "100601",
+    "correo": "compras@santarosa.example"
+  },
+  "items": [
+    {
+      "numeroOrden": 1,
+      "codigoProducto": "LEC-EVA-48",
+      "descripcion": "LECHE EVAPORADA ENTERA CAJA X 48 LATAS 400 G",
+      "unidadMedida": "BX",
+      "cantidad": "10",
+      "valorUnitario": "150.00",
+      "precioUnitario": "177.00",
+      "tipoAfectacionIgv": "10",
+      "codigoTributoIgv": "1000",
+      "valorVenta": "1500.00",
+      "baseImponibleIgv": "1500.00",
+      "porcentajeIgv": "18.00",
+      "montoIgv": "270.00",
+      "totalTributos": "270.00",
+      "importeTotal": "1770.00"
+    },
+    {
+      "numeroOrden": 2,
+      "codigoProducto": "ACE-VEG-12",
+      "descripcion": "ACEITE VEGETAL CAJA X 12 BOTELLAS 1 L",
+      "unidadMedida": "BX",
+      "cantidad": "5",
+      "valorUnitario": "85.00",
+      "precioUnitario": "100.30",
+      "tipoAfectacionIgv": "10",
+      "codigoTributoIgv": "1000",
+      "valorVenta": "425.00",
+      "baseImponibleIgv": "425.00",
+      "porcentajeIgv": "18.00",
+      "montoIgv": "76.50",
+      "totalTributos": "76.50",
+      "importeTotal": "501.50"
+    },
+    {
+      "numeroOrden": 3,
+      "codigoProducto": "FID-SPA-20",
+      "descripcion": "FIDEOS SPAGHETTI CAJA X 20 PAQUETES 500 G",
+      "unidadMedida": "BX",
+      "cantidad": "8",
+      "valorUnitario": "42.00",
+      "precioUnitario": "49.56",
+      "tipoAfectacionIgv": "10",
+      "codigoTributoIgv": "1000",
+      "valorVenta": "336.00",
+      "baseImponibleIgv": "336.00",
+      "porcentajeIgv": "18.00",
+      "montoIgv": "60.48",
+      "totalTributos": "60.48",
+      "importeTotal": "396.48"
+    },
+    {
+      "numeroOrden": 4,
+      "codigoProducto": "GAL-SOD-06",
+      "descripcion": "GALLETAS DE SODA PAQUETE X 6 UNIDADES - BONIFICACION",
+      "unidadMedida": "PK",
+      "cantidad": "6",
+      "valorUnitario": "0.00",
+      "valorReferencialUnitario": "5.00",
+      "tipoAfectacionIgv": "15",
+      "codigoTributoIgv": "9996",
+      "valorVenta": "30.00",
+      "baseImponibleIgv": "30.00",
+      "porcentajeIgv": "18.00",
+      "montoIgv": "5.40",
+      "totalTributos": "5.40",
+      "importeTotal": "0.00"
+    }
+  ],
+  "totales": {
+    "operacionesGravadas": "2261.00",
+    "operacionesExoneradas": "0.00",
+    "operacionesInafectas": "0.00",
+    "operacionesExportacion": "0.00",
+    "operacionesGratuitas": "30.00",
+    "tributosOperacionesGratuitas": "5.40",
+    "igv": "406.98",
+    "isc": "0.00",
+    "icbper": "0.00",
+    "otrosTributos": "0.00",
+    "totalTributos": "406.98",
+    "totalValorVenta": "2261.00",
+    "totalPrecioVenta": "2667.98",
+    "importeTotal": "2667.98"
+  },
+  "leyendas": [
+    { "codigo": "1000", "texto": "SON: DOS MIL SEISCIENTOS SESENTA Y SIETE CON 98/100 SOLES" },
+    { "codigo": "1002", "texto": "TRANSFERENCIA GRATUITA DE UN BIEN Y/O SERVICIO PRESTADO GRATUITAMENTE" }
+  ],
+  "formaPago": {
+    "tipo": "CREDITO",
+    "montoPendiente": "2667.98",
+    "cuotas": [
+      { "numero": 1, "monto": "1333.99", "fechaVencimiento": "2026-11-21" },
+      { "numero": 2, "monto": "1333.99", "fechaVencimiento": "2026-12-21" }
+    ]
+  },
+  "guiasRemision": [
+    { "tipo": "09", "numero": "T001-45" }
+  ],
+  "ordenCompra": "OC-0099",
+  "estado": "ACEPTADO",
+  "documentoElectronico": {
+    "nombreArchivo": "20123456786-01-F001-1",
+    "hash": "nnO1MeSf+lhvhOvzi7ngbw2tFn6qov49IWYHPwmfAsE=",
+    "algoritmoFirma": "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
+    "codigoQr": "20123456786|01|F001|1|406.98|2667.98|2026-10-22|6|20456789120|nnO1MeSf+lhvhOvzi7ngbw2tFn6qov49IWYHPwmfAsE=|"
+  },
+  "respuestaSunat": {
+    "canal": "OSE",
+    "codigo": "0",
+    "descripcion": "La Factura numero F001-1, ha sido aceptada",
+    "observaciones": [],
+    "fechaRespuesta": "2026-10-22T10:30:04-05:00"
+  },
+  "historialEnvios": [
+    {
+      "numero": 1,
+      "canal": "OSE",
+      "metodo": "sendBill",
+      "inicio": "2026-10-22T10:30:02-05:00",
+      "fin": "2026-10-22T10:30:04-05:00",
+      "resultado": "ACEPTADO",
+      "codigo": "0",
+      "reintentable": false
+    }
+  ],
+  "enlaces": {
+    "self": "/api/v1/comprobantes/3f6c2a7e-1b0d-4c55-9a1e-6d2f0b8c4e11",
+    "xml": "/api/v1/comprobantes/3f6c2a7e-1b0d-4c55-9a1e-6d2f0b8c4e11/xml",
+    "cdr": "/api/v1/comprobantes/3f6c2a7e-1b0d-4c55-9a1e-6d2f0b8c4e11/cdr",
+    "pdf": "/api/v1/comprobantes/3f6c2a7e-1b0d-4c55-9a1e-6d2f0b8c4e11/pdf"
+  },
+  "auditoria": {
+    "creadoPor": "vendedor.mayorista01",
+    "creadoEn": "2026-10-22T10:30:01-05:00",
+    "puntoEmisionId": "PE-ALMACEN-01",
+    "correlationId": "b7d4e2c0-5a9f-4f1e-8c3d-2e6a7f9b1c00"
+  }
+}

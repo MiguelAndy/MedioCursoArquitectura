@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Problema (RFC 9457)",
+  "description": "Formato único de error de la API (application/problem+json). Cada error de negocio cita la regla VAL-* violada y, cuando aplica, la norma y el código SUNAT relacionado, para que el cajero vea un mensaje comprensible y el soporte sepa qué regla falló.",
+  "type": "object",
+  "required": ["type", "title", "status"],
+  "properties": {
+    "type": { "type": "string", "format": "uri-reference", "examples": ["/problemas/validacion-negocio"] },
+    "title": { "type": "string" },
+    "status": { "type": "integer", "minimum": 400, "maximum": 599 },
+    "detail": { "type": "string" },
+    "instance": { "type": "string", "format": "uri-reference" },
+    "correlationId": { "type": "string" },
+    "errores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["regla", "mensaje"],
+        "properties": {
+          "regla": { "type": "string", "pattern": "^(VAL|MIG)-[A-Z]{2,3}-?\\d{2}$|^MIG-\\d{2}$", "examples": ["VAL-BOL-01"] },
+          "campo": { "type": "string", "description": "JSON Pointer del campo, p. ej. /items/0/cantidad." },
+          "mensaje": { "type": "string" },
+          "severidad": { "type": "string", "enum": ["ERROR", "ADVERTENCIA"] },
+          "fuenteNormativa": { "type": "string", "examples": ["RS 097-2012/SUNAT, Anexo N.° 9-A, campo 17"] },
+          "codigoSunatRelacionado": { "type": "string", "examples": ["2800"] }
+        }
+      }
+    }
+  }
+}

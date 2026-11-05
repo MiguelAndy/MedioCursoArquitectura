@@ -1,0 +1,14 @@
+stateDiagram-v2
+  [*] --> EMITIDO: emitir() numera y firma
+  EMITIDO --> ENVIADO: sendBill o resumen diario
+  ENVIADO --> ACEPTADO: CDR código 0
+  ENVIADO --> OBSERVADO: CDR código 4000 o más
+  ENVIADO --> RECHAZADO: CDR código 2000-3999
+  ENVIADO --> EXCEPCION: código 0100-1999 o timeout
+  EXCEPCION --> ENVIADO: reintento con el mismo número
+  ACEPTADO --> BAJA_EN_PROCESO: comunicación de baja o RC estado 3
+  OBSERVADO --> BAJA_EN_PROCESO: comunicación de baja o RC estado 3
+  BAJA_EN_PROCESO --> ANULADO: ticket procesado
+  BAJA_EN_PROCESO --> ACEPTADO: baja rechazada
+  RECHAZADO --> [*]: se emite un comprobante nuevo
+  ANULADO --> [*]

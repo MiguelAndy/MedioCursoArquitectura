@@ -1,0 +1,263 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Comprobante",
+  "description": "Representación (vista) de un comprobante emitido. Incluye los importes calculados por el motor tributario, el estado del ciclo de vida y la respuesta de SUNAT/OSE (CDR). Cada importe tiene su par en el XML UBL 2.1 (ver docs/08-matriz-trazabilidad-normativa.md).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "tipoComprobante", "serie", "correlativo", "numero", "fechaEmision", "moneda", "emisor", "items", "totales", "estado", "enlaces"],
+  "properties": {
+    "id": { "$ref": "comun.schema.json#/$defs/Uuid" },
+    "tipoComprobante": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat01ComprobanteEmitible" },
+    "serie": { "$ref": "comun.schema.json#/$defs/Serie" },
+    "correlativo": { "$ref": "comun.schema.json#/$defs/Correlativo" },
+    "numero": { "$ref": "comun.schema.json#/$defs/NumeroComprobante" },
+    "fechaEmision": { "$ref": "comun.schema.json#/$defs/Fecha" },
+    "horaEmision": { "$ref": "comun.schema.json#/$defs/Hora" },
+    "fechaVencimiento": { "$ref": "comun.schema.json#/$defs/Fecha" },
+    "tipoOperacion": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat51TipoOperacion" },
+    "moneda": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat02Moneda" },
+    "tipoCambio": { "$ref": "comun.schema.json#/$defs/TipoCambio" },
+    "emisor": { "$ref": "#/$defs/Emisor" },
+    "cliente": { "$ref": "comprobante-emision.request.schema.json#/$defs/ClienteComprobante" },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/ItemCalculado" }
+    },
+    "cargosDescuentosGlobales": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/CargoDescuentoAplicado" }
+    },
+    "totales": { "$ref": "#/$defs/Totales" },
+    "leyendas": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Leyenda" }
+    },
+    "formaPago": { "$ref": "comprobante-emision.request.schema.json#/$defs/FormaPago" },
+    "documentoReferencia": { "$ref": "comprobante-emision.request.schema.json#/$defs/DocumentoReferencia" },
+    "guiasRemision": {
+      "type": "array",
+      "items": { "$ref": "comprobante-emision.request.schema.json#/$defs/GuiaRelacionada" }
+    },
+    "ordenCompra": { "type": "string", "maxLength": 20 },
+    "estado": { "$ref": "#/$defs/EstadoComprobante" },
+    "documentoElectronico": { "$ref": "#/$defs/DocumentoElectronico" },
+    "respuestaSunat": { "$ref": "#/$defs/RespuestaSunat" },
+    "historialEnvios": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/IntentoEnvio" }
+    },
+    "enlaces": { "$ref": "comun.schema.json#/$defs/Enlaces" },
+    "auditoria": { "$ref": "comun.schema.json#/$defs/Auditoria" }
+  },
+  "$defs": {
+    "EstadoComprobante": {
+      "type": "string",
+      "description": "Ciclo de vida (docs/04, sección de estados). EXCEPCION = SUNAT/OSE devolvió un código 0100-1999: el comprobante no fue informado y se reintenta con el mismo número. RECHAZADO = código 2000-3999: el número queda utilizado y se emite un nuevo comprobante (Manual del programador SUNAT, §4.1).",
+      "oneOf": [
+        { "const": "EMITIDO", "title": "Numerado y firmado; pendiente de envío" },
+        { "const": "ENVIADO", "title": "Enviado; a la espera del CDR o del ticket" },
+        { "const": "ACEPTADO", "title": "CDR con código 0" },
+        { "const": "OBSERVADO", "title": "Aceptado con observaciones (código >= 4000)" },
+        { "const": "RECHAZADO", "title": "CDR de rechazo (2000-3999)" },
+        { "const": "EXCEPCION", "title": "No informado (0100-1999)" },
+        { "const": "BAJA_EN_PROCESO", "title": "Incluido en una comunicación de baja o resumen con estado 3" },
+        { "const": "ANULADO", "title": "Baja aceptada por SUNAT/OSE" }
+      ]
+    },
+    "Emisor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ruc", "razonSocial", "codigoEstablecimiento"],
+      "properties": {
+        "ruc": { "$ref": "comun.schema.json#/$defs/Ruc" },
+        "razonSocial": { "$ref": "comun.schema.json#/$defs/RazonSocial" },
+        "nombreComercial": { "type": "string", "maxLength": 1500 },
+        "codigoEstablecimiento": { "$ref": "comun.schema.json#/$defs/CodigoEstablecimiento" },
+        "direccion": { "type": "string", "maxLength": 200 },
+        "ubigeo": { "$ref": "comun.schema.json#/$defs/Ubigeo" }
+      }
+    },
+    "ItemCalculado": {
+      "allOf": [
+        { "$ref": "comprobante-emision.request.schema.json#/$defs/ItemBase" },
+        {
+          "type": "object",
+          "required": ["numeroOrden", "valorUnitario", "valorVenta", "codigoTributoIgv", "baseImponibleIgv", "porcentajeIgv", "montoIgv", "totalTributos"],
+          "properties": {
+            "numeroOrden": { "type": "integer", "minimum": 1, "maximum": 99999 },
+            "codigoTributoIgv": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat05Tributo" },
+            "valorVenta": {
+              "$ref": "comun.schema.json#/$defs/Importe",
+              "description": "cbc:LineExtensionAmount del ítem."
+            },
+            "baseImponibleIgv": { "$ref": "comun.schema.json#/$defs/Importe" },
+            "porcentajeIgv": { "$ref": "comun.schema.json#/$defs/Porcentaje" },
+            "montoIgv": { "$ref": "comun.schema.json#/$defs/Importe" },
+            "baseImponibleIsc": { "$ref": "comun.schema.json#/$defs/Importe" },
+            "montoIsc": { "$ref": "comun.schema.json#/$defs/Importe" },
+            "tarifaIcbper": { "$ref": "comun.schema.json#/$defs/Importe" },
+            "montoIcbper": { "$ref": "comun.schema.json#/$defs/Importe" },
+            "totalTributos": { "$ref": "comun.schema.json#/$defs/Importe" },
+            "importeTotal": {
+              "$ref": "comun.schema.json#/$defs/Importe",
+              "description": "Valor de venta más tributos del ítem (dato de presentación)."
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "CargoDescuentoAplicado": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codigo", "monto", "montoBase"],
+      "properties": {
+        "codigo": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat53CargoDescuento" },
+        "factor": { "type": "string" },
+        "monto": { "$ref": "comun.schema.json#/$defs/Importe" },
+        "montoBase": { "$ref": "comun.schema.json#/$defs/Importe" }
+      }
+    },
+    "Totales": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operacionesGravadas", "operacionesExoneradas", "operacionesInafectas", "operacionesExportacion", "operacionesGratuitas", "igv", "isc", "icbper", "otrosTributos", "totalTributos", "totalValorVenta", "totalPrecioVenta", "importeTotal"],
+      "properties": {
+        "operacionesGravadas": { "$ref": "comun.schema.json#/$defs/Importe", "description": "TaxSubtotal 1000 / TaxableAmount" },
+        "operacionesExoneradas": { "$ref": "comun.schema.json#/$defs/Importe", "description": "TaxSubtotal 9997 / TaxableAmount" },
+        "operacionesInafectas": { "$ref": "comun.schema.json#/$defs/Importe", "description": "TaxSubtotal 9998 / TaxableAmount" },
+        "operacionesExportacion": { "$ref": "comun.schema.json#/$defs/Importe", "description": "TaxSubtotal 9995 / TaxableAmount" },
+        "operacionesGratuitas": { "$ref": "comun.schema.json#/$defs/Importe", "description": "TaxSubtotal 9996 / TaxableAmount" },
+        "tributosOperacionesGratuitas": { "$ref": "comun.schema.json#/$defs/Importe", "description": "TaxSubtotal 9996 / TaxAmount (no se cobra)" },
+        "igv": { "$ref": "comun.schema.json#/$defs/Importe", "description": "TaxSubtotal 1000 / TaxAmount" },
+        "isc": { "$ref": "comun.schema.json#/$defs/Importe", "description": "TaxSubtotal 2000 / TaxAmount" },
+        "icbper": { "$ref": "comun.schema.json#/$defs/Importe", "description": "TaxSubtotal 7152 / TaxAmount" },
+        "otrosTributos": { "$ref": "comun.schema.json#/$defs/Importe", "description": "TaxSubtotal 9999 / TaxAmount" },
+        "totalTributos": { "$ref": "comun.schema.json#/$defs/Importe", "description": "cac:TaxTotal/cbc:TaxAmount" },
+        "descuentosGlobalesAfectos": { "$ref": "comun.schema.json#/$defs/Importe", "description": "Cat. 53 código 02 (reduce la base imponible)" },
+        "descuentosNoAfectos": { "$ref": "comun.schema.json#/$defs/Importe", "description": "LegalMonetaryTotal/AllowanceTotalAmount" },
+        "cargosNoAfectos": { "$ref": "comun.schema.json#/$defs/Importe", "description": "LegalMonetaryTotal/ChargeTotalAmount" },
+        "anticipos": { "$ref": "comun.schema.json#/$defs/Importe", "description": "LegalMonetaryTotal/PrepaidAmount" },
+        "totalValorVenta": { "$ref": "comun.schema.json#/$defs/Importe", "description": "LegalMonetaryTotal/LineExtensionAmount" },
+        "totalPrecioVenta": { "$ref": "comun.schema.json#/$defs/Importe", "description": "LegalMonetaryTotal/TaxInclusiveAmount" },
+        "redondeo": { "$ref": "comun.schema.json#/$defs/ImporteConSigno", "description": "LegalMonetaryTotal/PayableRoundingAmount" },
+        "importeTotal": { "$ref": "comun.schema.json#/$defs/Importe", "description": "LegalMonetaryTotal/PayableAmount" }
+      }
+    },
+    "Leyenda": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codigo", "texto"],
+      "properties": {
+        "codigo": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat52Leyenda" },
+        "texto": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    },
+    "DocumentoElectronico": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nombreArchivo", "hash"],
+      "properties": {
+        "nombreArchivo": {
+          "type": "string",
+          "pattern": "^\\d{11}-(01|03|07|08)-[A-Z0-9]{4}-\\d{1,8}$",
+          "description": "RUC-TIPO-SERIE-NUMERO (Manual del programador SUNAT)."
+        },
+        "hash": {
+          "type": "string",
+          "description": "Valor resumen: ds:DigestValue de la firma (Base64)."
+        },
+        "algoritmoFirma": { "type": "string" },
+        "huellaCertificado": { "type": "string", "description": "SHA-256 del certificado usado." },
+        "codigoQr": {
+          "type": "string",
+          "description": "Contenido del QR de la representación impresa: RUC|TIPO|SERIE|NUMERO|IGV|TOTAL|FECHA|TIPO DOC ADQ|NUM DOC ADQ|HASH|"
+        }
+      }
+    },
+    "RespuestaSunat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canal", "codigo", "descripcion"],
+      "properties": {
+        "canal": { "type": "string", "enum": ["OSE", "SUNAT"] },
+        "codigo": {
+          "type": "string",
+          "pattern": "^\\d{1,4}$",
+          "description": "0 = aceptado; 0100-1999 excepción; 2000-3999 rechazo; 4000 en adelante = observación."
+        },
+        "descripcion": { "type": "string" },
+        "observaciones": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Observacion" }
+        },
+        "ticket": { "type": "string" },
+        "fechaRespuesta": { "$ref": "comun.schema.json#/$defs/FechaHora" }
+      }
+    },
+    "Observacion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codigo", "descripcion"],
+      "properties": {
+        "codigo": { "type": "string" },
+        "descripcion": { "type": "string" }
+      }
+    },
+    "IntentoEnvio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["numero", "canal", "metodo", "inicio", "resultado"],
+      "properties": {
+        "numero": { "type": "integer", "minimum": 1 },
+        "canal": { "type": "string", "enum": ["OSE", "SUNAT"] },
+        "metodo": { "type": "string", "enum": ["sendBill", "sendSummary", "getStatus", "getStatusCdr"] },
+        "inicio": { "$ref": "comun.schema.json#/$defs/FechaHora" },
+        "fin": { "$ref": "comun.schema.json#/$defs/FechaHora" },
+        "resultado": { "type": "string", "enum": ["ACEPTADO", "OBSERVADO", "RECHAZADO", "EXCEPCION", "TICKET_EN_PROCESO", "ERROR_COMUNICACION"] },
+        "codigo": { "type": "string" },
+        "descripcion": { "type": "string" },
+        "reintentable": { "type": "boolean" }
+      }
+    },
+    "ResultadoCalculo": {
+      "type": "object",
+      "description": "Respuesta de POST /comprobantes/calculos: simula el comprobante sin numerarlo ni persistirlo, para que los clientes muestren exactamente los importes del servidor.",
+      "additionalProperties": false,
+      "required": ["items", "totales", "leyendas"],
+      "properties": {
+        "items": { "type": "array", "items": { "$ref": "#/$defs/ItemCalculado" } },
+        "cargosDescuentosGlobales": { "type": "array", "items": { "$ref": "#/$defs/CargoDescuentoAplicado" } },
+        "totales": { "$ref": "#/$defs/Totales" },
+        "leyendas": { "type": "array", "items": { "$ref": "#/$defs/Leyenda" } },
+        "advertencias": { "type": "array", "items": { "$ref": "#/$defs/Observacion" } }
+      }
+    },
+    "ComprobanteResumen": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "tipoComprobante", "numero", "fechaEmision", "moneda", "importeTotal", "estado"],
+      "properties": {
+        "id": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "tipoComprobante": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat01ComprobanteEmitible" },
+        "numero": { "$ref": "comun.schema.json#/$defs/NumeroComprobante" },
+        "fechaEmision": { "$ref": "comun.schema.json#/$defs/Fecha" },
+        "clienteDocumento": { "type": "string" },
+        "clienteRazonSocial": { "type": "string" },
+        "moneda": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat02Moneda" },
+        "importeTotal": { "$ref": "comun.schema.json#/$defs/Importe" },
+        "estado": { "$ref": "#/$defs/EstadoComprobante" }
+      }
+    },
+    "PaginaComprobantes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["elementos", "pagina"],
+      "properties": {
+        "elementos": { "type": "array", "items": { "$ref": "#/$defs/ComprobanteResumen" } },
+        "pagina": { "$ref": "comun.schema.json#/$defs/PaginaMeta" }
+      }
+    }
+  }
+}

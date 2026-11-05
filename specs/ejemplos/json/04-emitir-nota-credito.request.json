@@ -1,0 +1,24 @@
+{
+  "tipoComprobante": "07",
+  "serie": "FC01",
+  "fechaEmision": "2026-10-23",
+  "horaEmision": "09:15:00",
+  "moneda": "PEN",
+  "items": [
+    {
+      "codigoProducto": "ACE-VEG-12",
+      "descripcion": "ACEITE VEGETAL CAJA X 12 BOTELLAS 1 L",
+      "unidadMedida": "BX",
+      "cantidad": "1",
+      "valorUnitario": "85.00",
+      "tipoAfectacionIgv": "10"
+    }
+  ],
+  "documentoReferencia": {
+    "tipoComprobante": "01",
+    "numero": "F001-1",
+    "motivo": "07",
+    "sustento": "DEVOLUCION DE 1 CAJA DE ACEITE CON ENVASES DANADOS"
+  },
+  "puntoEmisionId": "PE-ALMACEN-01"
+}

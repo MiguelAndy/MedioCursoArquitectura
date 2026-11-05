@@ -1,0 +1,366 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EmitirComprobanteRequest",
+  "description": "Contrato de entrada del caso de uso EmitirComprobante (CU-01, CU-02, CU-03, CU-04). El cliente NO envía el correlativo, los impuestos ni los totales: el servidor los asigna y calcula con el motor tributario (ADR-07). Las reglas que JSON Schema no puede expresar (dígito verificador del RUC, umbral de S/ 700, saldos de notas, plazos) se validan en el dominio y se citan por su código VAL-*.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["tipoComprobante", "serie", "moneda", "items"],
+  "properties": {
+    "tipoComprobante": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat01ComprobanteEmitible" },
+    "serie": { "$ref": "comun.schema.json#/$defs/Serie" },
+    "fechaEmision": {
+      "$ref": "comun.schema.json#/$defs/Fecha",
+      "description": "Opcional. Si se omite se usa la fecha del servidor. No puede ser futura ni exceder el plazo de envío vigente (VAL-FEC-01, VAL-FEC-02)."
+    },
+    "horaEmision": { "$ref": "comun.schema.json#/$defs/Hora" },
+    "fechaVencimiento": { "$ref": "comun.schema.json#/$defs/Fecha" },
+    "tipoOperacion": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat51TipoOperacion" },
+    "moneda": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat02Moneda" },
+    "tipoCambio": { "$ref": "comun.schema.json#/$defs/TipoCambio" },
+    "cliente": { "$ref": "#/$defs/ClienteComprobante" },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/ItemComprobante" }
+    },
+    "cargosDescuentosGlobales": {
+      "type": "array",
+      "maxItems": 10,
+      "items": { "$ref": "#/$defs/CargoDescuentoGlobal" }
+    },
+    "formaPago": { "$ref": "#/$defs/FormaPago" },
+    "documentoReferencia": { "$ref": "#/$defs/DocumentoReferencia" },
+    "guiasRemision": {
+      "type": "array",
+      "maxItems": 20,
+      "items": { "$ref": "#/$defs/GuiaRelacionada" }
+    },
+    "ordenCompra": { "type": "string", "minLength": 1, "maxLength": 20 },
+    "detraccion": { "$ref": "#/$defs/Detraccion" },
+    "observaciones": { "$ref": "comun.schema.json#/$defs/Texto500" },
+    "puntoEmisionId": {
+      "type": "string",
+      "description": "Punto de emisión (caja o dispositivo) dueño de la serie. Si se omite se toma del token del dispositivo (VAL-NUM-04)."
+    },
+    "notificarCliente": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si es true y el cliente tiene correo, se envían PDF y XML al ser aceptado (CU-10)."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "tipoComprobante": { "const": "01" } } },
+      "then": {
+        "properties": { "serie": { "pattern": "^F[A-Z0-9]{3}$" } },
+        "required": ["tipoOperacion", "cliente", "formaPago"],
+        "not": { "required": ["documentoReferencia"] }
+      }
+    },
+    {
+      "if": { "properties": { "tipoComprobante": { "const": "03" } } },
+      "then": {
+        "properties": { "serie": { "pattern": "^B[A-Z0-9]{3}$" } },
+        "required": ["tipoOperacion", "cliente"],
+        "not": { "required": ["documentoReferencia"] }
+      }
+    },
+    {
+      "if": { "properties": { "tipoComprobante": { "enum": ["07", "08"] } } },
+      "then": {
+        "properties": { "serie": { "pattern": "^[FB][A-Z0-9]{3}$" } },
+        "required": ["documentoReferencia"]
+      }
+    },
+    {
+      "if": { "properties": { "tipoComprobante": { "const": "07" } } },
+      "then": {
+        "properties": {
+          "documentoReferencia": {
+            "properties": { "motivo": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat09TipoNotaCredito" } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "tipoComprobante": { "const": "08" } } },
+      "then": {
+        "properties": {
+          "documentoReferencia": {
+            "properties": { "motivo": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat10TipoNotaDebito" } }
+          }
+        }
+      }
+    },
+    {
+      "description": "VAL-ID-03: en factura de venta interna el adquirente se identifica con RUC.",
+      "if": {
+        "properties": {
+          "tipoComprobante": { "const": "01" },
+          "tipoOperacion": { "enum": ["0101", "1001", "2001"] }
+        },
+        "required": ["tipoOperacion"]
+      },
+      "then": {
+        "properties": { "cliente": { "properties": { "tipoDocumento": { "const": "6" } } } }
+      }
+    },
+    {
+      "description": "VAL-ID-05: el tipo de operación 0112 solo admite factura y adquirente con DNI o RUC (RS 000005-2023/SUNAT).",
+      "if": {
+        "properties": { "tipoOperacion": { "const": "0112" } },
+        "required": ["tipoOperacion"]
+      },
+      "then": {
+        "properties": {
+          "tipoComprobante": { "const": "01" },
+          "cliente": { "properties": { "tipoDocumento": { "enum": ["1", "6"] } } }
+        }
+      }
+    },
+    {
+      "description": "VAL-MON-02: moneda distinta de PEN exige tipo de cambio.",
+      "if": { "properties": { "moneda": { "not": { "const": "PEN" } } } },
+      "then": { "required": ["tipoCambio"] }
+    },
+    {
+      "description": "VAL-DET-01: operación sujeta a detracción exige los datos de la detracción.",
+      "if": {
+        "properties": { "tipoOperacion": { "const": "1001" } },
+        "required": ["tipoOperacion"]
+      },
+      "then": { "required": ["detraccion"] }
+    }
+  ],
+  "$defs": {
+    "ClienteComprobante": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tipoDocumento", "numeroDocumento", "razonSocial"],
+      "properties": {
+        "terceroId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "tipoDocumento": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat06TipoDocumentoIdentidad" },
+        "numeroDocumento": { "$ref": "comun.schema.json#/$defs/NumeroDocumentoIdentidad" },
+        "razonSocial": { "$ref": "comun.schema.json#/$defs/RazonSocial" },
+        "direccion": { "type": "string", "maxLength": 200 },
+        "ubigeo": { "$ref": "comun.schema.json#/$defs/Ubigeo" },
+        "correo": { "$ref": "comun.schema.json#/$defs/Correo" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "tipoDocumento": { "const": "6" } } },
+          "then": { "properties": { "numeroDocumento": { "$ref": "comun.schema.json#/$defs/Ruc" } } }
+        },
+        {
+          "if": { "properties": { "tipoDocumento": { "const": "1" } } },
+          "then": { "properties": { "numeroDocumento": { "$ref": "comun.schema.json#/$defs/Dni" } } }
+        }
+      ]
+    },
+    "ItemBase": {
+      "type": "object",
+      "required": ["descripcion", "unidadMedida", "cantidad", "tipoAfectacionIgv"],
+      "properties": {
+        "productoId": {
+          "$ref": "comun.schema.json#/$defs/Uuid",
+          "description": "Si se informa, el servidor toma del maestro la afectación, el ISC y el ICBPER del producto (VAL-ITM-06)."
+        },
+        "codigoProducto": { "type": "string", "minLength": 1, "maxLength": 30 },
+        "codigoProductoSunat": {
+          "type": "string",
+          "pattern": "^\\d{8}$",
+          "description": "Código UNSPSC (Catálogo N.° 25)."
+        },
+        "codigoGtin": {
+          "type": "string",
+          "pattern": "^(\\d{8}|\\d{12,14})$",
+          "description": "GTIN-8/12/13/14 (código de barras GS1)."
+        },
+        "descripcion": { "$ref": "comun.schema.json#/$defs/Texto500" },
+        "unidadMedida": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat03UnidadMedida" },
+        "cantidad": { "$ref": "comun.schema.json#/$defs/Cantidad" },
+        "valorUnitario": {
+          "$ref": "comun.schema.json#/$defs/ValorUnitario",
+          "description": "Valor unitario SIN impuestos (cac:Price/cbc:PriceAmount)."
+        },
+        "precioUnitario": {
+          "$ref": "comun.schema.json#/$defs/ValorUnitario",
+          "description": "Precio unitario CON IGV e ISC (Catálogo N.° 16 = 01). Alternativa a valorUnitario, típica de la venta minorista."
+        },
+        "valorReferencialUnitario": {
+          "$ref": "comun.schema.json#/$defs/ValorUnitario",
+          "description": "Valor referencial para operaciones no onerosas (Catálogo N.° 16 = 02)."
+        },
+        "tipoAfectacionIgv": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat07TipoAfectacionIgv" },
+        "isc": { "$ref": "#/$defs/IscItem" },
+        "icbper": { "$ref": "#/$defs/IcbperItem" },
+        "cargosDescuentos": {
+          "type": "array",
+          "maxItems": 5,
+          "items": { "$ref": "#/$defs/CargoDescuentoItem" }
+        }
+      }
+    },
+    "ItemComprobante": {
+      "allOf": [
+        { "$ref": "#/$defs/ItemBase" },
+        {
+          "description": "VAL-ITM-04: las operaciones no onerosas llevan valor referencial; las onerosas, valor o precio unitario (uno solo).",
+          "if": {
+            "properties": {
+              "tipoAfectacionIgv": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat07AfectacionGratuita" }
+            },
+            "required": ["tipoAfectacionIgv"]
+          },
+          "then": {
+            "required": ["valorReferencialUnitario"],
+            "not": { "anyOf": [{ "required": ["valorUnitario"] }, { "required": ["precioUnitario"] }] }
+          },
+          "else": {
+            "oneOf": [{ "required": ["valorUnitario"] }, { "required": ["precioUnitario"] }],
+            "not": { "required": ["valorReferencialUnitario"] }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "IscItem": {
+      "type": "object",
+      "description": "Afectación al ISC del ítem (Catálogo N.° 08). Si el ítem referencia un producto, el servidor usa la parametrización vigente (TasaIsc) y estos datos solo se aceptan si coinciden (VAL-TRB-04).",
+      "additionalProperties": false,
+      "required": ["sistema"],
+      "properties": {
+        "sistema": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat08SistemaIsc" },
+        "tasa": { "$ref": "comun.schema.json#/$defs/Porcentaje" },
+        "montoFijoUnitario": {
+          "$ref": "comun.schema.json#/$defs/ValorUnitario",
+          "description": "Sistema 02: monto fijo por unidad de la base de medida del Apéndice III/IV (p. ej., por litro o por unidad)."
+        },
+        "cantidadEnUnidadBase": {
+          "$ref": "comun.schema.json#/$defs/Cantidad",
+          "description": "Sistema 02: cantidad expresada en la unidad del Apéndice cuando difiere de la unidad comercial (p. ej., litros de una caja)."
+        },
+        "precioVentaPublicoSugerido": {
+          "$ref": "comun.schema.json#/$defs/ValorUnitario",
+          "description": "Sistema 03: precio de venta al público sugerido por el productor o importador."
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "sistema": { "const": "01" } } }, "then": { "required": ["tasa"] } },
+        { "if": { "properties": { "sistema": { "const": "02" } } }, "then": { "required": ["montoFijoUnitario"] } },
+        { "if": { "properties": { "sistema": { "const": "03" } } }, "then": { "required": ["tasa", "precioVentaPublicoSugerido"] } }
+      ]
+    },
+    "IcbperItem": {
+      "type": "object",
+      "description": "Impuesto al consumo de bolsas de plástico (tributo 7152). La tarifa por bolsa se toma del parámetro vigente TARIFA_ICBPER (VAL-TRB-06).",
+      "additionalProperties": false,
+      "required": ["cantidadBolsas"],
+      "properties": {
+        "cantidadBolsas": { "type": "integer", "minimum": 1, "maximum": 9999 }
+      }
+    },
+    "CargoDescuentoItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codigo"],
+      "properties": {
+        "codigo": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat53DescuentoItem" },
+        "factor": {
+          "type": "string",
+          "pattern": "^(0(\\.\\d{1,5})?|1(\\.0{1,5})?)$",
+          "description": "Factor entre 0 y 1 (cbc:MultiplierFactorNumeric)."
+        },
+        "monto": { "$ref": "comun.schema.json#/$defs/Importe" }
+      },
+      "oneOf": [{ "required": ["factor"] }, { "required": ["monto"] }]
+    },
+    "CargoDescuentoGlobal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codigo"],
+      "properties": {
+        "codigo": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat53CargoDescuentoGlobal" },
+        "factor": {
+          "type": "string",
+          "pattern": "^(0(\\.\\d{1,5})?|1(\\.0{1,5})?)$"
+        },
+        "monto": { "$ref": "comun.schema.json#/$defs/Importe" }
+      },
+      "oneOf": [{ "required": ["factor"] }, { "required": ["monto"] }]
+    },
+    "FormaPago": {
+      "type": "object",
+      "description": "Forma de pago (RS 193-2020/SUNAT). Obligatoria en facturas; en crédito exige monto pendiente y cuotas (VAL-PAG-*).",
+      "additionalProperties": false,
+      "required": ["tipo"],
+      "properties": {
+        "tipo": { "type": "string", "enum": ["CONTADO", "CREDITO"] },
+        "montoPendiente": {
+          "$ref": "comun.schema.json#/$defs/Importe",
+          "description": "Monto neto pendiente de pago. Si se omite, el servidor usa el importe total menos detracción o retención."
+        },
+        "cuotas": {
+          "type": "array",
+          "maxItems": 999,
+          "items": { "$ref": "#/$defs/Cuota" }
+        }
+      },
+      "if": { "properties": { "tipo": { "const": "CREDITO" } } },
+      "then": {
+        "required": ["cuotas"],
+        "properties": { "cuotas": { "minItems": 1 } }
+      },
+      "else": {
+        "not": { "anyOf": [{ "required": ["cuotas"] }, { "required": ["montoPendiente"] }] }
+      }
+    },
+    "Cuota": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["monto", "fechaVencimiento"],
+      "properties": {
+        "numero": { "type": "integer", "minimum": 1, "maximum": 999 },
+        "monto": { "$ref": "comun.schema.json#/$defs/Importe" },
+        "fechaVencimiento": { "$ref": "comun.schema.json#/$defs/Fecha" }
+      }
+    },
+    "DocumentoReferencia": {
+      "type": "object",
+      "description": "Comprobante que modifica la nota. Relación 1 a 1 (RS 000048-2026/SUNAT para SEE-OSE; ya vigente en SEE-Del Contribuyente).",
+      "additionalProperties": false,
+      "required": ["tipoComprobante", "numero", "motivo", "sustento"],
+      "properties": {
+        "comprobanteId": { "$ref": "comun.schema.json#/$defs/Uuid" },
+        "tipoComprobante": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat01ComprobanteModificable" },
+        "numero": { "$ref": "comun.schema.json#/$defs/NumeroComprobante" },
+        "motivo": { "type": "string", "pattern": "^\\d{2}$" },
+        "sustento": { "$ref": "comun.schema.json#/$defs/Texto500" }
+      }
+    },
+    "GuiaRelacionada": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tipo", "numero"],
+      "properties": {
+        "tipo": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat01GuiaRemision" },
+        "numero": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{4}-\\d{1,8}$"
+        }
+      }
+    },
+    "Detraccion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codigoBienServicio", "porcentaje", "cuentaBancoNacion"],
+      "properties": {
+        "codigoBienServicio": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat54BienServicioDetraccion" },
+        "porcentaje": { "$ref": "comun.schema.json#/$defs/Porcentaje" },
+        "cuentaBancoNacion": { "type": "string", "pattern": "^[0-9-]{8,20}$" },
+        "medioPago": { "$ref": "catalogos-sunat.schema.json#/$defs/Cat59MedioPago" }
+      }
+    }
+  }
+}

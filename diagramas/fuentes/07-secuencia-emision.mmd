@@ -1,0 +1,38 @@
+sequenceDiagram
+  autonumber
+  actor U as Cajero / Vendedor
+  participant V as Vista (Windows / Android)
+  participant C as ComprobanteController
+  participant S as EmitirComprobanteService
+  participant D as Dominio
+  participant N as NumeradorPort
+  participant F as cpe · DocumentoElectronicoApi
+  participant R as Repositorio + outbox
+  participant Q as cpe · EnvioCpe (asíncrono)
+  participant O as OSE / SUNAT
+  U->>V: Registra la venta
+  V->>C: POST /comprobantes (Idempotency-Key)
+  C->>C: Valida JSON Schema (VAL-EST-01)
+  C->>S: emitir(comando)
+  S->>D: validar reglas y calcular tributos (VAL-*)
+  D-->>S: Comprobante con totales y leyendas
+  S->>N: siguienteCorrelativo(F001) con bloqueo de fila
+  N-->>S: F001-1
+  S->>F: generarYFirmar(snapshot)
+  F-->>S: XML UBL 2.1 firmado + hash + QR
+  S->>R: guardar EMITIDO + evento (misma transacción)
+  S-->>C: Comprobante
+  C-->>V: 201 Created (hash, QR, enlaces)
+  V->>U: Imprime la representación impresa
+  R--)Q: ComprobanteEmitido (tras el commit)
+  Q->>O: sendBill(ZIP) o inclusión en resumen diario
+  alt código 0 o mayor o igual a 4000
+    O-->>Q: CDR aceptado (con o sin observaciones)
+    Q--)R: ACEPTADO / OBSERVADO
+  else código 2000-3999
+    O-->>Q: CDR de rechazo
+    Q--)R: RECHAZADO, número consumido, se emite uno nuevo
+  else código 0100-1999 o sin respuesta
+    O-->>Q: excepción o tiempo agotado
+    Q->>Q: reintento con backoff y el mismo número (EXCEPCION)
+  end

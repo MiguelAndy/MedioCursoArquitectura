@@ -1,0 +1,110 @@
+classDiagram
+  direction LR
+  class Producto {
+    <<AggregateRoot>>
+    +ProductoId id
+    +String codigo
+    +String codigoSunatUnspsc
+    +String gtin
+    +Cat03Unidad unidadBase
+    +Tabla5TipoExistencia tipoExistencia
+    +Cat07AfectacionIgv afectacionPorDefecto
+    +boolean afectoIcbper
+  }
+  class TasaIsc {
+    <<Entity>>
+    +Cat08SistemaIsc sistema
+    +Porcentaje tasa
+    +Dinero montoFijo
+    +Dinero precioVentaPublico
+    +Vigencia vigencia
+    +String baseLegal
+  }
+  class Presentacion {
+    <<ValueObject>>
+    +Cat03Unidad unidad
+    +Cantidad factor
+    +String gtin
+  }
+  class Tercero {
+    <<AggregateRoot>>
+    +DocumentoIdentidad documento
+    +String razonSocial
+    +Verificacion verificacion
+    +Set~Rol~ roles
+  }
+  class Existencia {
+    <<AggregateRoot>>
+    +String almacenId
+    +ProductoId productoId
+    +Cantidad saldo
+    +long version
+    +registrar(movimiento)
+  }
+  class MovimientoInventario {
+    <<Entity>>
+    +LocalDate fecha
+    +Tabla12TipoOperacion tipoOperacion
+    +DocumentoSoporte documento
+    +Cantidad entrada
+    +Cantidad salida
+    +Cantidad saldoFinal
+    +OrigenMovimiento origen
+  }
+  class DocumentoSoporte {
+    <<ValueObject>>
+    +Tabla10TipoDocumento tipo
+    +String serie
+    +String numero
+    +String textoOriginal
+  }
+  class LoteMigracion {
+    <<AggregateRoot>>
+    +LoteId id
+    +EstadoLote estado
+    +String hashArchivo
+    +String versionReglas
+    +confirmar()
+  }
+  class RegistroLegado {
+    <<Entity>>
+    +String idLegado
+    +FichaLegado fichaOriginal
+    +String hashRegistro
+    +EstadoRegistro estado
+  }
+  class Linaje {
+    <<Entity>>
+    +String idLegado
+    +String entidadDestino
+    +UUID idDestino
+    +List~String~ reglas
+  }
+  class DocumentoElectronico {
+    <<AggregateRoot>>
+    +String nombreArchivo
+    +String hash
+    +EstadoEnvio estado
+  }
+  class IntentoEnvio {
+    <<Entity>>
+    +Canal canal
+    +String metodo
+    +String codigoRespuesta
+  }
+  class Cdr {
+    <<ValueObject>>
+    +String codigo
+    +String descripcion
+    +List~Observacion~ observaciones
+  }
+  Producto "1" *-- "0..*" TasaIsc
+  Producto "1" *-- "0..10" Presentacion
+  Existencia "1" *-- "0..*" MovimientoInventario
+  MovimientoInventario *-- DocumentoSoporte
+  MovimientoInventario ..> Producto : productoId
+  LoteMigracion "1" *-- "1..*" RegistroLegado
+  RegistroLegado "1" --> "0..1" Linaje
+  Linaje ..> MovimientoInventario : idDestino
+  DocumentoElectronico "1" *-- "0..*" IntentoEnvio
+  DocumentoElectronico *-- "0..1" Cdr

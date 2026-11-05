@@ -1,0 +1,22 @@
+# Entornos y dependencias locales
+.venv/
+venv/
+node_modules/
+__pycache__/
+*.pyc
+
+# Certificados y llaves: NUNCA se versionan (ni siquiera los de prueba)
+*.p12
+*.pfx
+*.jks
+*.pem
+*.key
+
+# Temporales de construcción del informe
+build/
+~$*.docx
+.quarto/
+
+# Fase 2: compilación de Maven (incluye las clases generadas desde el XSD)
+target/
+*.class

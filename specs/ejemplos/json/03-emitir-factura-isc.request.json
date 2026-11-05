@@ -1,0 +1,36 @@
+{
+  "tipoComprobante": "01",
+  "serie": "F001",
+  "fechaEmision": "2026-10-22",
+  "horaEmision": "11:05:00",
+  "tipoOperacion": "0101",
+  "moneda": "PEN",
+  "cliente": {
+    "tipoDocumento": "6",
+    "numeroDocumento": "20456789120",
+    "razonSocial": "DISTRIBUIDORA SANTA ROSA DEL HUALLAGA E.I.R.L.",
+    "direccion": "JR. HUALLAGA 456, TINGO MARIA",
+    "ubigeo": "100601"
+  },
+  "items": [
+    {
+      "codigoProducto": "BEB-ENE-01",
+      "descripcion": "BEBIDA ENERGIZANTE IMPORTADA LATA 250 ML",
+      "unidadMedida": "NIU",
+      "cantidad": "24",
+      "valorUnitario": "2.00",
+      "tipoAfectacionIgv": "10",
+      "isc": { "sistema": "01", "tasa": "25.00" }
+    },
+    {
+      "codigoProducto": "ACE-VEG-12",
+      "descripcion": "ACEITE VEGETAL CAJA X 12 BOTELLAS 1 L",
+      "unidadMedida": "BX",
+      "cantidad": "1",
+      "valorUnitario": "85.00",
+      "tipoAfectacionIgv": "10"
+    }
+  ],
+  "formaPago": { "tipo": "CONTADO" },
+  "puntoEmisionId": "PE-ALMACEN-01"
+}
