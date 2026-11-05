@@ -11,7 +11,7 @@ import java.util.Objects;
  * Implementa {@link DocumentoElectronicoApi}: UBL → firma → validación (capa 3).
  *
  * <p>Hallazgo de la fase 2: un XML sin firma no cumple el XSD (el {@code ext:ExtensionContent} vacío es inválido;
- * así ocurre con specs/ubl/plantillas). Por eso VAL-EST-02 se aplica al XML <b>firmado</b>.</p>
+ * así ocurre con specs/ubl/fuentes-sin-firma). Por eso VAL-EST-02 se aplica al XML <b>firmado</b>.</p>
  */
 public class GenerarDocumentoElectronicoService implements DocumentoElectronicoApi {
 

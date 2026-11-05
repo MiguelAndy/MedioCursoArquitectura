@@ -3,7 +3,7 @@ package pe.abc.comercial.facturacion.dominio.catalogo;
 /**
  * Catálogo N.° 05: códigos de tributos.
  * El orden de declaración es el orden en que se informan los {@code cac:TaxSubtotal} de la cabecera,
- * el mismo de los XML de referencia de specs/ubl/plantillas.
+ * el mismo de los XML de referencia de specs/ubl/fuentes-sin-firma.
  */
 public enum Tributo {
 

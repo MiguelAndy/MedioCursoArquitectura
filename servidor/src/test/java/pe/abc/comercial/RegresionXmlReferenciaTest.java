@@ -47,11 +47,11 @@ class RegresionXmlReferenciaTest {
         }
     }
 
-    @ParameterizedTest(name = "{0} equivale a specs/ubl/plantillas/{1}")
+    @ParameterizedTest(name = "{0} equivale a specs/ubl/fuentes-sin-firma/{1}")
     @CsvSource({"F001-1, 20123456786-01-F001-1.xml", "F001-2, 20123456786-01-F001-2.xml",
             "B001-1, 20123456786-03-B001-1.xml"})
-    void elXmlSinFirmaEsIgualALaPlantilla(String numero, String plantilla) {
-        String esperado = Ensamble.leer(rutaSinFirma(plantilla));
+    void elXmlSinFirmaEsIgualALaFuente(String numero, String fuente) {
+        String esperado = Ensamble.leer(Ensamble.UBL.resolve("fuentes-sin-firma").resolve(fuente));
         String generado = new String(generados.get(numero).xmlSinFirma(), StandardCharsets.UTF_8);
 
         Diff diferencias = DiffBuilder.compare(esperado).withTest(generado)
@@ -82,12 +82,12 @@ class RegresionXmlReferenciaTest {
     }
 
     @Test
-    void lasPlantillasSinFirmaNoCumplenElXsd() {
+    void lasFuentesSinFirmaNoCumplenElXsd() {
         // Hallazgo documentado: ext:ExtensionContent vacío es inválido; por eso VAL-EST-02 se aplica tras firmar.
-        byte[] plantilla = Ensamble.leer(rutaSinFirma("20123456786-01-F001-1.xml"))
+        byte[] fuente = Ensamble.leer(Ensamble.UBL.resolve("fuentes-sin-firma").resolve("20123456786-01-F001-1.xml"))
                 .getBytes(StandardCharsets.UTF_8);
 
-        assertThat(new ValidadorDocumentoAdapter().validar(plantilla))
+        assertThat(new ValidadorDocumentoAdapter().validar(fuente))
                 .anyMatch(e -> e.startsWith("VAL-EST-02") && e.contains("ExtensionContent"));
     }
 
@@ -100,8 +100,4 @@ class RegresionXmlReferenciaTest {
         return XMLSignatureFactory.getInstance("DOM").unmarshalXMLSignature(contexto).validate(contexto);
     }
 
-    static Path rutaSinFirma(String relativo) {
-        Path p = Ensamble.UBL.resolve("fuentes-sin-firma").resolve(relativo);
-        return Files.exists(p) ? p : Ensamble.UBL.resolve("plantillas").resolve(relativo);
-    }
 }

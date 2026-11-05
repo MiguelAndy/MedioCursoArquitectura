@@ -16,7 +16,7 @@ public interface DocumentoElectronicoApi {
     /**
      * Resultado de la generación.
      *
-     * @param xmlSinFirma XML antes de firmar (equivale a specs/ubl/plantillas)
+     * @param xmlSinFirma XML antes de firmar (equivale a specs/ubl/fuentes-sin-firma)
      * @param xmlFirmado  XML firmado con XMLDSig (equivale a specs/ubl/ejemplos)
      * @param hash        {@code ds:DigestValue} de la firma (INV-10)
      */

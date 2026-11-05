@@ -66,7 +66,7 @@ public final class DocumentoElectronicoCpeAdapter implements DocumentoElectronic
     /**
      * Aclaración A-02 de la fase 2 (TR-A18 es condicional): la dirección del adquirente se informa solo cuando el
      * comprobante sustenta un traslado de bienes (tiene guías de remisión). Minimiza datos personales (Ley 29733,
-     * docs/06 § 6.11) y reproduce los XML de referencia de specs/ubl/plantillas.
+     * docs/06 § 6.11) y reproduce los XML de referencia de specs/ubl/fuentes-sin-firma.
      */
     static Domicilio direccionDelAdquirente(DatosComprobante d) {
         var adquirente = d.adquirente();

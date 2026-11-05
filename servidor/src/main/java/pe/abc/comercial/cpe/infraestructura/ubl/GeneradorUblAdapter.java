@@ -23,7 +23,7 @@ import java.util.Map;
 /**
  * Serializa el {@code InvoiceType} con JAXB y lo carga como DOM para firmarlo.
  *
- * <p>La salida usa la misma forma que specs/ubl/plantillas (indentación de 2 espacios y los namespaces
+ * <p>La salida usa la misma forma que specs/ubl/fuentes-sin-firma (indentación de 2 espacios y los namespaces
  * {@code cac, cbc, ext, ds} declarados en la raíz): así su forma canónica (C14N) es idéntica y el
  * {@code DigestValue} de la firma coincide con el de los ejemplos firmados de la fase 1.</p>
  */
@@ -90,7 +90,7 @@ public final class GeneradorUblAdapter implements GeneradorUblPort {
         }
     }
 
-    /** Prefijos convencionales y namespaces declarados en la raíz, igual que en specs/ubl/plantillas. */
+    /** Prefijos convencionales y namespaces declarados en la raíz, igual que en specs/ubl/fuentes-sin-firma. */
     private static final class Prefijos extends NamespacePrefixMapper {
         @Override
         public String getPreferredPrefix(String uri, String sugerencia, boolean requierePrefijo) {
