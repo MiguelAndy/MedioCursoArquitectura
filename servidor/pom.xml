@@ -101,6 +101,7 @@
                 <executions>
                     <execution>
                         <id>generar-clases-ubl-invoice-2.1</id>
+                        <phase>generate-sources</phase>
                         <goals>
                             <goal>generate</goal>
                         </goals>

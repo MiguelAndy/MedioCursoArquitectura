@@ -11,6 +11,11 @@ import pe.abc.comercial.Ensamble;
 import pe.abc.comercial.cpe.infraestructura.ubl.ValidadorDocumentoAdapter;
 
 import java.nio.charset.StandardCharsets;
+import org.w3c.dom.Document;
+import pe.abc.comercial.cpe.api.ComprobanteElectronico;
+import pe.abc.comercial.cpe.infraestructura.ubl.GeneradorUblAdapter;
+import java.util.Locale;
+
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -256,5 +261,44 @@ class GeneracionXmlUblTest {
         xml(xml).valueByXPath("count(//*[@currencyID and @currencyID != 'USD'])").isEqualTo("0");
         xml(xml).valueByXPath("/inv:Invoice/cbc:Note").isEqualTo("SON: CIENTO SETENTA Y UNO CON 10/100 DÓLARES AMERICANOS");
         assertThat(new ValidadorDocumentoAdapter().validar(xml.getBytes(StandardCharsets.UTF_8))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Generación orientada a objetos (JAXB) instanciando comprobante y validando <cbc:ID>")
+    void debeGenerarXmlUblConInstanciacionDeObjetosYValidarId() {
+        GeneradorUblAdapter adapter = new GeneradorUblAdapter();
+        Ensamble sistema = new Ensamble();
+        var solicitud = sistema.solicitud("01-emitir-factura-credito.request.json");
+        sistema.servicio.emitir(solicitud, "clave-test-directo");
+        ComprobanteElectronico comprobante = sistema.cpe.recibidos.get(0);
+
+        Document doc = adapter.generar(comprobante);
+        byte[] xmlBytes = adapter.serializar(doc);
+        String xmlContent = new String(xmlBytes, StandardCharsets.UTF_8);
+
+        // AssertJ
+        assertThat(xmlContent).isNotEmpty();
+        assertThat(xmlContent).contains("<cbc:ID>F001-1</cbc:ID>");
+        assertThat(xmlContent).contains("<cbc:UBLVersionID>2.1</cbc:UBLVersionID>");
+
+        // XMLUnit
+        xml(xmlContent).hasXPath("/inv:Invoice/cbc:ID");
+        xml(xmlContent).valueByXPath("/inv:Invoice/cbc:ID").isEqualTo("F001-1");
+    }
+
+    @Test
+    @DisplayName("Soporte multi-idioma (i18n) para mensajes de error")
+    void debeSoportarMensajesMultiIdiomaI18n() {
+        GeneradorUblAdapter adapter = new GeneradorUblAdapter();
+        String msgEs = adapter.obtenerMensaje("IOerror", Locale.forLanguageTag("es"), "default");
+        String msgEn = adapter.obtenerMensaje("IOerror", Locale.ENGLISH, "default");
+
+        assertThat(msgEs).isEqualTo("Error de entrada salida");
+        assertThat(msgEn).isEqualTo("Input output error");
+
+        String msgIoEs = adapter.obtenerMensaje("IOerror_es", Locale.forLanguageTag("es"), "default");
+        String msgIoEn = adapter.obtenerMensaje("IOerror_en", Locale.ENGLISH, "default");
+        assertThat(msgIoEs).isEqualTo("Error de entrada salida");
+        assertThat(msgIoEn).isEqualTo("Input output error");
     }
 }

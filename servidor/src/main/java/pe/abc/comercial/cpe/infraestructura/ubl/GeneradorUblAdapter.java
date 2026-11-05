@@ -5,6 +5,9 @@ import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Marshaller;
 import oasis.names.specification.ubl.schema.xsd.invoice_2.ObjectFactory;
 import org.glassfish.jaxb.runtime.marshaller.NamespacePrefixMapper;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.context.support.ResourceBundleMessageSource;
 import org.w3c.dom.Document;
 import org.xml.sax.InputSource;
 import pe.abc.comercial.cpe.api.ComprobanteElectronico;
@@ -18,6 +21,7 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.ByteArrayOutputStream;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -41,13 +45,44 @@ public final class GeneradorUblAdapter implements GeneradorUblPort {
     private final JAXBContext contexto;
     private final InvoiceUblMapper mapper = new InvoiceUblMapper();
     private final ObjectFactory fabrica = new ObjectFactory();
+    private final MessageSource messageSource;
 
     public GeneradorUblAdapter() {
+        this(crearMessageSourcePorDefecto());
+    }
+
+    public GeneradorUblAdapter(MessageSource messageSource) {
+        this.messageSource = messageSource != null ? messageSource : crearMessageSourcePorDefecto();
         try {
             this.contexto = JAXBContext.newInstance(ObjectFactory.class);
         } catch (JAXBException e) {
-            throw new IllegalStateException("No se pudo crear el contexto JAXB de UBL 2.1", e);
+            String mensaje = obtenerMensaje("error.xml.jaxb", "No se pudo crear el contexto JAXB de UBL 2.1");
+            throw new IllegalStateException(mensaje, e);
         }
+    }
+
+    public MessageSource getMessageSource() {
+        return this.messageSource;
+    }
+
+    public String obtenerMensaje(String codigo, String porDefecto, Object... args) {
+        return obtenerMensaje(codigo, LocaleContextHolder.getLocale(), porDefecto, args);
+    }
+
+    public String obtenerMensaje(String codigo, Locale locale, String porDefecto, Object... args) {
+        try {
+            return messageSource.getMessage(codigo, args, porDefecto, locale != null ? locale : Locale.getDefault());
+        } catch (Exception ex) {
+            return porDefecto;
+        }
+    }
+
+    private static MessageSource crearMessageSourcePorDefecto() {
+        ResourceBundleMessageSource source = new ResourceBundleMessageSource();
+        source.setBasename("messages");
+        source.setDefaultEncoding("UTF-8");
+        source.setUseCodeAsDefaultMessage(true);
+        return source;
     }
 
     @Override
@@ -62,7 +97,11 @@ public final class GeneradorUblAdapter implements GeneradorUblPort {
             marshaller.marshal(fabrica.createInvoice(mapper.mapear(comprobante)), xml);
             return parsear(xml.toString());
         } catch (JAXBException e) {
-            throw new IllegalStateException("No se pudo serializar el comprobante " + comprobante.numero(), e);
+            String mensaje = obtenerMensaje("error.xml.generacion", "No se pudo serializar el comprobante " + comprobante.numero(), comprobante.numero());
+            throw new IllegalStateException(mensaje, e);
+        } catch (Exception e) {
+            String mensaje = obtenerMensaje("IOerror", "Error de entrada salida");
+            throw new IllegalStateException(mensaje, e);
         }
     }
 
@@ -75,18 +114,20 @@ public final class GeneradorUblAdapter implements GeneradorUblPort {
             transformador.transform(new DOMSource(documento), new StreamResult(salida));
             return salida.toByteArray();
         } catch (Exception e) {
-            throw new IllegalStateException("No se pudo serializar el XML", e);
+            String mensaje = obtenerMensaje("IOerror", "Error de entrada salida");
+            throw new IllegalStateException(mensaje, e);
         }
     }
 
-    private static Document parsear(String xml) {
+    private Document parsear(String xml) {
         try {
             DocumentBuilderFactory fabrica = DocumentBuilderFactory.newInstance();
             fabrica.setNamespaceAware(true);
             fabrica.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             return fabrica.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
         } catch (Exception e) {
-            throw new IllegalStateException("XML generado ilegible", e);
+            String mensaje = obtenerMensaje("error.xml.parseo", "XML generado ilegible");
+            throw new IllegalStateException(mensaje, e);
         }
     }
 

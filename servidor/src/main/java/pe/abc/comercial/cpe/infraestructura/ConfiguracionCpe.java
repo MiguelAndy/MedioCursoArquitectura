@@ -1,8 +1,10 @@
 package pe.abc.comercial.cpe.infraestructura;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.support.ResourceBundleMessageSource;
 import pe.abc.comercial.cpe.api.DocumentoElectronicoApi;
 import pe.abc.comercial.cpe.aplicacion.GenerarDocumentoElectronicoService;
 import pe.abc.comercial.cpe.infraestructura.firma.AlmacenCertificado;
@@ -27,8 +29,22 @@ public class ConfiguracionCpe {
     }
 
     @Bean
-    DocumentoElectronicoApi documentoElectronicoApi(AlmacenCertificado certificado) {
-        return new GenerarDocumentoElectronicoService(new GeneradorUblAdapter(),
+    public MessageSource messageSource() {
+        ResourceBundleMessageSource messageSource = new ResourceBundleMessageSource();
+        messageSource.setBasename("messages");
+        messageSource.setDefaultEncoding("UTF-8");
+        messageSource.setUseCodeAsDefaultMessage(true);
+        return messageSource;
+    }
+
+    @Bean
+    GeneradorUblAdapter generadorUblAdapter(MessageSource messageSource) {
+        return new GeneradorUblAdapter(messageSource);
+    }
+
+    @Bean
+    DocumentoElectronicoApi documentoElectronicoApi(AlmacenCertificado certificado, GeneradorUblAdapter generadorUblAdapter) {
+        return new GenerarDocumentoElectronicoService(generadorUblAdapter,
                 new FirmadorXmlDsigAdapter(certificado.llave(), certificado.certificado()),
                 new ValidadorDocumentoAdapter());
     }
