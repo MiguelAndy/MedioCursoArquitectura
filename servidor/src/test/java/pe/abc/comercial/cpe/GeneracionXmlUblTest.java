@@ -301,4 +301,26 @@ class GeneracionXmlUblTest {
         assertThat(msgIoEs).isEqualTo("Error de entrada salida");
         assertThat(msgIoEn).isEqualTo("Input output error");
     }
+
+    @Test
+    @DisplayName("Aislado: InvoiceType instanciado directamente se serializa con Marshaller y contiene <cbc:ID>")
+    void invoiceTypeInstanciadoDirectamenteGeneraCbcId() throws Exception {
+        var idType = new oasis.names.specification.ubl.schema.xsd.commonbasiccomponents_2.IDType();
+        idType.setValue("F001-99");
+        var invoice = new oasis.names.specification.ubl.schema.xsd.invoice_2.InvoiceType();
+        invoice.setID(idType);
+
+        var fabrica = new oasis.names.specification.ubl.schema.xsd.invoice_2.ObjectFactory();
+        var marshaller = jakarta.xml.bind.JAXBContext
+                .newInstance(oasis.names.specification.ubl.schema.xsd.invoice_2.ObjectFactory.class)
+                .createMarshaller();
+        marshaller.setProperty(jakarta.xml.bind.Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
+        java.io.StringWriter salida = new java.io.StringWriter();
+        marshaller.marshal(fabrica.createInvoice(invoice), salida);
+        String generado = salida.toString();
+
+        assertThat(generado).contains("Invoice").contains("F001-99");
+        xml(generado).valueByXPath("/inv:Invoice/cbc:ID").isEqualTo("F001-99");
+        xml(generado).nodesByXPath("/inv:Invoice/cbc:ID").hasSize(1);
+    }
 }

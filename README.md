@@ -3,7 +3,7 @@
 **Universidad Nacional Agraria de la Selva · Facultad de Ingeniería en Informática y Sistemas**
 **Arquitectura de Software · Grupo "A"**
 **Fase 1:** examen de medio curso, 19 de octubre de 2026 · **Fase 2:** segundo parcial, 5 de noviembre de 2026
-**Alumno:** Miguel Andy Quispe Chavez
+**Alumno:** Quispe Chavez Miguel Andy
 
 Especificaciones técnicas, y su implementación en Java, para modernizar el software de ABC Software Corp, una mediana empresa mayorista y minorista de abarrotes, y llevarlo a la **facturación electrónica SUNAT en UBL 2.1** con **inventario formal**, **migración trazable del legado** y una **arquitectura MVC preparada para hexagonal y microservicios**, con distribución nativa en **Windows (MSI)** y **Android (APK)**.
 
@@ -11,15 +11,24 @@ Especificaciones técnicas, y su implementación en Java, para modernizar el sof
 
 ## Fase 2 (segundo parcial): generación del XML a partir de `UBL-Invoice-2.1.xsd`
 
-La fase 2 **implementa** esta especificación en [`servidor/`](servidor/), con Java 21 y Spring Boot 3 (ADR-03 y ADR-11 para JAXB).
+La fase 2 **implementa** esta especificación en [`servidor/`](servidor/), con Java 21 y Spring Boot 3 (ADR-03).
 El detalle completo está en [docs/11-fase-2-implementacion.md](docs/11-fase-2-implementacion.md).
 
-- **Generación Orientada a Objetos (JAXB):** En cada compilación, `jaxb-maven-plugin` genera las clases Java desde `specs/ubl/xsd-oasis-ubl-2.1/maindoc/UBL-Invoice-2.1.xsd`. El XML se produce instanciando objetos con estas clases y serializando con `jakarta.xml.bind.Marshaller`. **No se utiliza concatenación de strings ni plantillas de texto.**
-- **Soporte Multilenguaje (i18n):** Se integró `MessageSource` de Spring utilizando `messages_es.properties` y `messages_en.properties` para internacionalizar la captura de excepciones y errores durante la generación XML.
-- **Pruebas Unitarias de Generación:** Se incluyeron pruebas aisladas directas (`GeneracionXmlUblTest.java`) para garantizar la correcta instanciación del documento electrónico y la validación de nodos clave (ej. `<cbc:ID>`) usando AssertJ y XMLUnit.
-- **Los contratos se aplican, no se copian.** La capa 1 valida cada solicitud con `specs/schemas` (JSON Schema) y la capa 3 valida cada XML con los XSD oficiales de `specs/ubl`.
-- **Regresión RNF-03.** Las solicitudes de `specs/ejemplos/json` producen los mismos documentos de `specs/ubl`. El **`DigestValue` de la firma es idéntico** al de los ejemplos firmados de la fase 1.
-- **126 pruebas unitarias y de API**, con cobertura validada en el pipeline de Integración Continua.
+- **El XML se genera a partir del XSD.** En cada compilación, `jaxb-maven-plugin` genera las clases Java desde
+  `specs/ubl/xsd-oasis-ubl-2.1/maindoc/UBL-Invoice-2.1.xsd`. El XML se produce con esas clases y nunca concatenando texto.
+- **Los contratos se aplican, no se copian.** La capa 1 valida cada solicitud con `specs/schemas` (JSON Schema)
+  y la capa 3 valida cada XML con los XSD de `specs/ubl`.
+- **MVC por fuera, hexágono por dentro.** Hay controlador, puertos de entrada y salida, un dominio sin frameworks y
+  adaptadores (JAXB, XMLDSig, memoria). Las reglas ArchUnit del § 6.5 se ejecutan en cada build.
+- **Regresión RNF-03.** Las solicitudes de `specs/ejemplos/json` producen los mismos documentos de `specs/ubl`.
+  El **`DigestValue` de la firma es idéntico** al de los ejemplos firmados de la fase 1.
+- **124 pruebas unitarias y de API**, con cobertura de líneas del 95,5 % (el build falla si baja del 90 %).
+
+```bash
+cd servidor
+./mvnw verify            # Windows: mvnw.cmd verify. Solo requiere JDK 21
+./mvnw spring-boot:run   # http://localhost:8080/api/v1/comprobantes
+```
 
 ## Resumen ejecutivo de la fase 1 (especificación)
 
