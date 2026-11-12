@@ -49,7 +49,7 @@ class GeneracionXmlUblTest {
 
     static String emitir(Ensamble sistema, String solicitud) {
         sistema.servicio.emitir(sistema.solicitud(solicitud), solicitud);
-        return new String(sistema.cpe.ultimo().xmlFirmado(), StandardCharsets.UTF_8);
+        return new String(sistema.cpe.ultimo().xmlFirmado(), StandardCharsets.ISO_8859_1);
     }
 
     static XmlAssert xml(String documento) {
@@ -256,11 +256,11 @@ class GeneracionXmlUblTest {
         ObjectNode cuerpo = (ObjectNode) Ensamble.leerJson(Ensamble.EJEMPLOS_JSON.resolve("03-emitir-factura-isc.request.json"));
         cuerpo.put("moneda", "USD").put("tipoCambio", "3.750");
         sistema.servicio.emitir(sistema.solicitud(cuerpo), "usd");
-        String xml = new String(sistema.cpe.ultimo().xmlFirmado(), StandardCharsets.UTF_8);
+        String xml = new String(sistema.cpe.ultimo().xmlFirmado(), StandardCharsets.ISO_8859_1);
 
         xml(xml).valueByXPath("count(//*[@currencyID and @currencyID != 'USD'])").isEqualTo("0");
         xml(xml).valueByXPath("/inv:Invoice/cbc:Note").isEqualTo("SON: CIENTO SETENTA Y UNO CON 10/100 DÓLARES AMERICANOS");
-        assertThat(new ValidadorDocumentoAdapter().validar(xml.getBytes(StandardCharsets.UTF_8))).isEmpty();
+        assertThat(new ValidadorDocumentoAdapter().validar(xml.getBytes(StandardCharsets.ISO_8859_1))).isEmpty();
     }
 
     @Test
@@ -274,7 +274,7 @@ class GeneracionXmlUblTest {
 
         Document doc = adapter.generar(comprobante);
         byte[] xmlBytes = adapter.serializar(doc);
-        String xmlContent = new String(xmlBytes, StandardCharsets.UTF_8);
+        String xmlContent = new String(xmlBytes, StandardCharsets.ISO_8859_1);
 
         // AssertJ
         assertThat(xmlContent).isNotEmpty();

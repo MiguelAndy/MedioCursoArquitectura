@@ -89,7 +89,7 @@ public final class GeneradorUblAdapter implements GeneradorUblPort {
     public Document generar(ComprobanteElectronico comprobante) {
         try {
             Marshaller marshaller = contexto.createMarshaller();
-            marshaller.setProperty(Marshaller.JAXB_ENCODING, "UTF-8");
+            marshaller.setProperty(Marshaller.JAXB_ENCODING, "ISO-8859-1");
             marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
             marshaller.setProperty("org.glassfish.jaxb.indentString", "  ");
             marshaller.setProperty("org.glassfish.jaxb.namespacePrefixMapper", new Prefijos());
@@ -109,7 +109,8 @@ public final class GeneradorUblAdapter implements GeneradorUblPort {
     public byte[] serializar(Document documento) {
         try {
             var transformador = TransformerFactory.newInstance().newTransformer();
-            transformador.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
+            transformador.setOutputProperty(OutputKeys.ENCODING, "ISO-8859-1");
+            transformador.setOutputProperty(OutputKeys.STANDALONE, "yes");
             ByteArrayOutputStream salida = new ByteArrayOutputStream();
             transformador.transform(new DOMSource(documento), new StreamResult(salida));
             return salida.toByteArray();

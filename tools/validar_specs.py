@@ -170,9 +170,11 @@ def cuadrar_importes(doc: etree._ElementTree) -> list[str]:
         num = linea.findtext("cbc:ID", namespaces=NS)
         valor_venta = d(linea.find("cbc:LineExtensionAmount", NS))
         subtotales = linea.findall("cac:TaxTotal/cac:TaxSubtotal", NS)
-        suma = sum((d(s.find("cbc:TaxAmount", NS)) for s in subtotales), Decimal("0"))
+        # SUNAT 3292: el TaxAmount de la línea suma solo los tributos cobrados (excluye 9996, VAL-TRB-09)
+        suma = sum((d(s.find("cbc:TaxAmount", NS)) for s in subtotales
+                    if s.findtext("cac:TaxCategory/cac:TaxScheme/cbc:ID", namespaces=NS) != "9996"), Decimal("0"))
         if suma != d(linea.find("cac:TaxTotal/cbc:TaxAmount", NS)):
-            problemas.append(f"línea {num}: TaxTotal de la línea no es la suma de sus TaxSubtotal")
+            problemas.append(f"línea {num}: TaxTotal de la línea no es la suma de sus TaxSubtotal cobrados (excluye 9996)")
         es_gratuita = any(s.findtext("cac:TaxCategory/cac:TaxScheme/cbc:ID", namespaces=NS) == "9996" for s in subtotales)
         if not es_gratuita:
             total_onerosas += valor_venta

@@ -400,7 +400,14 @@ public final class InvoiceUblMapper {
         referencia.getAlternativeConditionPrice().add(alternativo);
         linea.setPricingReference(referencia);
 
-        linea.getTaxTotal().add(totalImpuestos(l.totalImpuestos(), l.impuestos(), moneda));
+        // SUNAT 3292: el TaxAmount de la línea suma solo los tributos cobrados; el 9996 (gratuito) se informa
+        // en su TaxSubtotal pero no suma (VAL-TRB-09), por lo que una bonificación lleva TaxAmount 0.00.
+        BigDecimal cobrado = l.impuestos().stream()
+                .filter(s -> !"9996".equals(s.tributo().codigo()))
+                .map(Subtotal::monto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_UP);
+        linea.getTaxTotal().add(totalImpuestos(cobrado, l.impuestos(), moneda));
 
         ItemType item = new ItemType();
         item.getDescription().add(texto(DescriptionType::new, l.descripcion()));
